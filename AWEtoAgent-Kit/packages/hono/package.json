@@ -1,0 +1,48 @@
+{
+  "name": "@aweto-agent/hono",
+  "version": "0.6.2",
+  "description": "Hono adapter for Lucid agent runtime",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/awe-x402/AWEtoAgent-Kit",
+    "directory": "packages/hono"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rm -rf dist",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@aweto-agent/ap2": "^0.2.0",
+    "@aweto-agent/core": "^1.7.0",
+    "@aweto-agent/payments": "^1.7.2",
+    "@aweto-agent/types": "^1.3.0",
+    "hono": "4.10.1",
+    "x402-hono": "^0.7.1",
+    "x402": "^0.7.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  }
+}

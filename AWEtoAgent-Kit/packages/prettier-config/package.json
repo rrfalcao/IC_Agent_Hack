@@ -1,0 +1,13 @@
+{
+  "name": "@aweto-agent/prettier-config",
+  "version": "1.0.0",
+  "description": "Shared Prettier configuration for AWEtoAgent monorepo",
+  "main": "index.js",
+  "private": true,
+  "files": [
+    "index.js",
+    ".prettierignore.example",
+    "README.md"
+  ]
+}
+

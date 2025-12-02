@@ -1,0 +1,60 @@
+{{ADAPTER_IMPORTS}}
+import { privateKeyToAccount } from 'viem/accounts';
+
+// Derive payment address from wallet private key if PAYMENTS_RECEIVABLE_ADDRESS is not set
+function getPaymentAddress(): `0x${string}` | undefined {
+  if (process.env.PAYMENTS_RECEIVABLE_ADDRESS) {
+    return process.env.PAYMENTS_RECEIVABLE_ADDRESS as `0x${string}`;
+  }
+  if (process.env.PRIVATE_KEY) {
+    const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+    return account.address;
+  }
+  return undefined;
+}
+
+{{ADAPTER_PRE_SETUP}}
+const paymentAddress = getPaymentAddress();
+const appOptions = paymentAddress ? {
+  payments: {
+    facilitatorUrl: process.env.PAYMENTS_FACILITATOR_URL as `${string}://${string}`,
+    payTo: paymentAddress,
+    network: process.env.PAYMENTS_NETWORK as any,
+  },
+} : {};
+
+{{ADAPTER_POST_SETUP}}
+
+/**
+ * Example entrypoint that demonstrates direct invocation and task-based operations.
+ *
+ * Direct Invocation (synchronous):
+ * - Use `runtime.a2a?.client.invoke(card, skillId, input)` for immediate results
+ * - Returns result immediately, blocks until handler completes
+ * - Good for short-running operations
+ *
+ * Task-Based Operations (asynchronous):
+ * - Use `runtime.a2a?.client.sendMessage(card, skillId, input)` to create a task
+ * - Returns taskId immediately, task runs asynchronously
+ * - Poll `runtime.a2a?.client.getTask(card, taskId)` to get result
+ * - Or subscribe via `runtime.a2a?.client.subscribeTask(card, taskId, emit)` for SSE updates
+ * - Good for long-running operations or when you need task status tracking
+ *
+ * Example (Task-Based):
+ * ```typescript
+ * // Create task
+ * const { taskId } = await runtime.a2a?.client.sendMessage(card, 'process', input);
+ *
+ * // Poll for completion
+ * let task;
+ * while (true) {
+ *   task = await runtime.a2a?.client.getTask(card, taskId);
+ *   if (task.status === 'completed' || task.status === 'failed') break;
+ *   await new Promise(resolve => setTimeout(resolve, 100));
+ * }
+ *
+ * if (task.status === 'completed') {
+ *   const result = task.result;
+ * }
+ * ```
+ */

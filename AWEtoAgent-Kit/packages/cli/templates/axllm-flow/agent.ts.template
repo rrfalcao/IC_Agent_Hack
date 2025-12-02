@@ -1,0 +1,40 @@
+{{ADAPTER_IMPORTS}}
+import { createAxLLMClient } from "@aweto-agent/core/axllm";
+import { flow } from "@ax-llm/ax";
+import { privateKeyToAccount } from 'viem/accounts';
+
+// Derive payment address from wallet private key if PAYMENTS_RECEIVABLE_ADDRESS is not set
+function getPaymentAddress(): `0x${string}` | undefined {
+  if (process.env.PAYMENTS_RECEIVABLE_ADDRESS) {
+    return process.env.PAYMENTS_RECEIVABLE_ADDRESS as `0x${string}`;
+  }
+  if (process.env.PRIVATE_KEY) {
+    const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+    return account.address;
+  }
+  return undefined;
+}
+
+{{ADAPTER_PRE_SETUP}}
+const paymentAddress = getPaymentAddress();
+const appOptions = paymentAddress ? {
+  payments: {
+    facilitatorUrl: process.env.PAYMENTS_FACILITATOR_URL as `${string}://${string}`,
+    payTo: paymentAddress,
+    network: process.env.PAYMENTS_NETWORK as any,
+  },
+} : {};
+
+const axClient = createAxLLMClient({
+  logger: {
+    warn(message, error) {
+      if (error) {
+        console.warn(`[agent] ${message}`, error);
+      } else {
+        console.warn(`[agent] ${message}`);
+      }
+    },
+  },
+});
+
+{{ADAPTER_POST_SETUP}}
