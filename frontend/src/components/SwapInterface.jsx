@@ -2,12 +2,14 @@
  * Swap Interface Component
  * PancakeSwap integration for token swaps
  * Integrated with x402 micropayments
+ * Glass morphism design
  */
 
 import { useState, useEffect } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
+import { GlassPanel } from './GlassPanel';
 
 const DEFAULT_TOKENS = {
   native: { symbol: 'tBNB', name: 'Test BNB', decimals: 18, address: null },
@@ -65,7 +67,6 @@ export function SwapInterface() {
           setError(null);
         } else {
           setQuote(null);
-          // Don't show error for quotes, just clear
         }
       } catch (err) {
         setQuote(null);
@@ -93,7 +94,6 @@ export function SwapInterface() {
     setError(null);
 
     try {
-      // Request payment from backend
       const response = await fetch('http://localhost:3000/api/payments/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,12 +125,10 @@ export function SwapInterface() {
     setSuccess(null);
 
     try {
-      // Sign the swap intent
       const domain = {
         name: 'Chimera',
         version: '1',
-        chainId: 97,
-        verifyingContract: '0x3710FEbef97cC9705b273C93f2BEB9aDf091Ffc9'
+        chainId: 97
       };
 
       const types = {
@@ -168,7 +166,6 @@ export function SwapInterface() {
 
       console.log('Swap intent signed');
 
-      // Execute swap
       const tokenInAddr = tokenIn === 'native' ? null : DEFAULT_TOKENS[tokenIn]?.address;
       const tokenOutAddr = tokenOut === 'native' ? null : DEFAULT_TOKENS[tokenOut]?.address;
 
@@ -214,30 +211,63 @@ export function SwapInterface() {
     setQuote(null);
   };
 
+  const selectStyle = {
+    padding: '0.875rem 1rem',
+    borderRadius: '12px',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.15)',
+    color: '#f5f5f5',
+    fontWeight: '600',
+    fontSize: '0.95rem',
+    cursor: 'pointer',
+    minWidth: '130px',
+    outline: 'none',
+  };
+
+  const inputStyle = {
+    flex: 1,
+    padding: '0.875rem 1rem',
+    borderRadius: '12px',
+    background: 'rgba(0, 0, 0, 0.3)',
+    border: '1px solid rgba(255, 255, 255, 0.1)',
+    color: '#f5f5f5',
+    fontSize: '1.25rem',
+    fontFamily: 'monospace',
+    textAlign: 'right',
+    outline: 'none',
+  };
+
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-        <span className="text-3xl">🔄</span>
+    <div style={{ padding: '1.5rem' }}>
+      <h2 style={{ 
+        fontSize: '1.75rem', 
+        fontWeight: '700', 
+        color: '#f5f5f5', 
+        marginBottom: '0.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem'
+      }}>
+        <span style={{ fontSize: '2rem' }}>🔄</span>
         Token Swap
       </h2>
-      <p className="text-gray-400 mb-6">
+      <p style={{ color: '#a3a3a3', marginBottom: '1.5rem' }}>
         Swap tokens via PancakeSwap (Gasless!)
       </p>
 
       {/* Swap Card */}
-      <div className="rounded-xl p-6" style={{ backgroundColor: '#252542' }}>
+      <GlassPanel variant="surface" hover={false} style={{ padding: '1.5rem' }}>
         {/* From Token */}
-        <div className="mb-4">
-          <label className="block text-gray-400 text-sm mb-2">From</label>
-          <div className="flex gap-3">
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.5rem' }}>From</label>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
             <select
               value={tokenIn}
               onChange={(e) => setTokenIn(e.target.value)}
-              className="px-4 py-3 rounded-xl bg-gray-700 text-white font-medium"
-              style={{ minWidth: '140px' }}
+              style={selectStyle}
             >
               {Object.entries(DEFAULT_TOKENS).map(([key, token]) => (
-                <option key={key} value={key}>{token.symbol}</option>
+                <option key={key} value={key} style={{ background: '#1a1a2e' }}>{token.symbol}</option>
               ))}
             </select>
             <input
@@ -245,81 +275,112 @@ export function SwapInterface() {
               value={amountIn}
               onChange={(e) => setAmountIn(e.target.value)}
               placeholder="0.0"
-              className="flex-1 px-4 py-3 rounded-xl text-white text-xl font-mono text-right"
-              style={{ backgroundColor: '#1a1a2e' }}
+              style={inputStyle}
             />
           </div>
         </div>
 
         {/* Switch Button */}
-        <div className="flex justify-center -my-2 relative z-10">
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '-0.5rem 0', position: 'relative', zIndex: 10 }}>
           <button
             onClick={switchTokens}
-            className="p-2 rounded-full bg-amber-400 hover:bg-amber-300 transition-colors"
+            style={{
+              padding: '0.75rem',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%)',
+              border: '1px solid rgba(251, 191, 36, 0.4)',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'rotate(180deg)';
+              e.target.style.background = 'linear-gradient(135deg, rgba(251, 191, 36, 0.5) 0%, rgba(245, 158, 11, 0.5) 100%)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'rotate(0deg)';
+              e.target.style.background = 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%)';
+            }}
           >
-            <span className="text-2xl">⇅</span>
+            <span style={{ fontSize: '1.5rem' }}>⇅</span>
           </button>
         </div>
 
         {/* To Token */}
-        <div className="mt-4">
-          <label className="block text-gray-400 text-sm mb-2">To</label>
-          <div className="flex gap-3">
+        <div style={{ marginTop: '1rem' }}>
+          <label style={{ display: 'block', color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.5rem' }}>To</label>
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
             <select
               value={tokenOut}
               onChange={(e) => setTokenOut(e.target.value)}
-              className="px-4 py-3 rounded-xl bg-gray-700 text-white font-medium"
-              style={{ minWidth: '140px' }}
+              style={selectStyle}
             >
               {Object.entries(DEFAULT_TOKENS).map(([key, token]) => (
-                <option key={key} value={key}>{token.symbol}</option>
+                <option key={key} value={key} style={{ background: '#1a1a2e' }}>{token.symbol}</option>
               ))}
             </select>
-            <div 
-              className="flex-1 px-4 py-3 rounded-xl text-white text-xl font-mono text-right flex items-center justify-end"
-              style={{ backgroundColor: '#1a1a2e' }}
-            >
-              {quoteLoading ? (
-                <span className="text-gray-500">Loading...</span>
-              ) : quote ? (
-                <span className="text-green-400">{parseFloat(quote.amountOut).toFixed(6)}</span>
-              ) : (
-                <span className="text-gray-500">0.0</span>
-              )}
+            <div style={{
+              ...inputStyle,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              color: quoteLoading ? '#737373' : quote ? '#86efac' : '#737373'
+            }}>
+              {quoteLoading ? 'Loading...' : quote ? parseFloat(quote.amountOut).toFixed(6) : '0.0'}
             </div>
           </div>
         </div>
 
         {/* Quote Details */}
         {quote && (
-          <div className="mt-4 p-3 rounded-lg space-y-2 text-sm" style={{ backgroundColor: '#1a1a2e' }}>
-            <div className="flex justify-between text-gray-400">
-              <span>Route</span>
-              <span className="text-amber-400">{quote.route}</span>
+          <div style={{ 
+            marginTop: '1rem', 
+            padding: '1rem', 
+            borderRadius: '12px',
+            background: 'rgba(0, 0, 0, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+            fontSize: '0.85rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#a3a3a3' }}>Route</span>
+              <span style={{ color: '#fbbf24' }}>{quote.route}</span>
             </div>
-            <div className="flex justify-between text-gray-400">
-              <span>Price Impact</span>
-              <span className={parseFloat(quote.priceImpact) > 3 ? 'text-red-400' : 'text-green-400'}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#a3a3a3' }}>Price Impact</span>
+              <span style={{ color: parseFloat(quote.priceImpact) > 3 ? '#fca5a5' : '#86efac' }}>
                 {quote.priceImpact}%
               </span>
             </div>
-            <div className="flex justify-between text-gray-400">
-              <span>Gas Cost</span>
-              <span className="text-green-400">$0.00 (Sponsored)</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#a3a3a3' }}>Gas Cost</span>
+              <span style={{ color: '#86efac' }}>$0.00 (Sponsored)</span>
             </div>
           </div>
         )}
 
         {/* Slippage */}
-        <div className="mt-4 flex items-center gap-3">
-          <span className="text-gray-400 text-sm">Slippage:</span>
+        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ color: '#a3a3a3', fontSize: '0.85rem' }}>Slippage:</span>
           {[0.1, 0.5, 1.0].map((s) => (
             <button
               key={s}
               onClick={() => setSlippage(s)}
-              className={`px-3 py-1 rounded-lg text-sm ${
-                slippage === s ? 'bg-amber-400 text-neutral-800' : 'bg-gray-700 text-gray-300'
-              }`}
+              style={{
+                padding: '0.5rem 0.75rem',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                background: slippage === s 
+                  ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%)'
+                  : 'rgba(255, 255, 255, 0.08)',
+                border: slippage === s
+                  ? '1px solid rgba(251, 191, 36, 0.4)'
+                  : '1px solid rgba(255, 255, 255, 0.1)',
+                color: slippage === s ? '#fbbf24' : '#a3a3a3',
+              }}
             >
               {s}%
             </button>
@@ -327,7 +388,7 @@ export function SwapInterface() {
         </div>
 
         {/* Swap Button */}
-        <div className="mt-6">
+        <div style={{ marginTop: '1.5rem' }}>
           <CartoonButton
             label={loading ? 'Swapping...' : !isConnected ? 'Connect Wallet' : '🔄 Sign & Swap'}
             color="bg-amber-400"
@@ -335,7 +396,7 @@ export function SwapInterface() {
             disabled={loading || !quote || !isConnected}
           />
         </div>
-      </div>
+      </GlassPanel>
 
       {/* Payment Modal */}
       <PaymentModal
@@ -349,33 +410,61 @@ export function SwapInterface() {
 
       {/* Error */}
       {error && (
-        <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-          <div className="text-red-400 font-semibold">Error</div>
-          <div className="text-red-300 text-sm">{error}</div>
-        </div>
+        <GlassPanel 
+          variant="surface" 
+          hover={false}
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <div style={{ color: '#fca5a5', fontWeight: '600' }}>Error</div>
+          <div style={{ color: '#fca5a5', fontSize: '0.9rem', opacity: 0.9 }}>{error}</div>
+        </GlassPanel>
       )}
 
       {/* Success */}
       {success && (
-        <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-          <div className="text-green-400 font-semibold">✅ {success.message}</div>
-          <div className="text-green-300 text-sm mt-1">
+        <GlassPanel 
+          variant="surface" 
+          hover={false}
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(34, 197, 94, 0.15)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+          }}
+        >
+          <div style={{ color: '#86efac', fontWeight: '600' }}>✅ {success.message}</div>
+          <div style={{ color: '#86efac', fontSize: '0.9rem', opacity: 0.9, marginTop: '0.25rem' }}>
             Transaction is ready for signing via facilitator
           </div>
-        </div>
+        </GlassPanel>
       )}
 
       {/* Info */}
-      <div className="mt-4 p-4 rounded-xl text-sm text-gray-400" style={{ backgroundColor: '#252542' }}>
-        <div className="font-medium text-gray-300 mb-2">ℹ️ How it works</div>
-        <ul className="space-y-1">
-          <li>• Swaps are executed through PancakeSwap V2</li>
-          <li>• Gas fees are sponsored by Chimera</li>
-          <li>• You only sign an EIP-712 authorization</li>
-          <li>• The facilitator executes the swap on your behalf</li>
+      <GlassPanel variant="surface" hover={false} style={{ marginTop: '1rem', padding: '1rem 1.25rem' }}>
+        <div style={{ fontWeight: '600', color: '#d4d4d4', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+          ℹ️ How it works
+        </div>
+        <ul style={{ 
+          margin: 0, 
+          padding: 0, 
+          paddingLeft: '1.25rem',
+          color: '#a3a3a3', 
+          fontSize: '0.85rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.25rem'
+        }}>
+          <li>Swaps are executed through PancakeSwap V2</li>
+          <li>Gas fees are sponsored by Chimera</li>
+          <li>You only sign an EIP-712 authorization</li>
+          <li>The facilitator executes the swap on your behalf</li>
         </ul>
-      </div>
+      </GlassPanel>
     </div>
   );
 }
-

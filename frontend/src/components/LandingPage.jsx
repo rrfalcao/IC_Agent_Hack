@@ -4,7 +4,6 @@
  */
 
 import { Waves } from './Waves';
-import { CartoonButton } from './CartoonButton';
 
 export function LandingPage({ onNavigate }) {
   const features = [
@@ -130,6 +129,7 @@ export function LandingPage({ onNavigate }) {
           {features.map((feature, idx) => (
             <div
               key={idx}
+              onClick={feature.action}
               style={{
                 background: 'rgba(250, 250, 250, 0.05)',
                 backdropFilter: 'blur(10px)',
@@ -138,17 +138,20 @@ export function LandingPage({ onNavigate }) {
                 padding: '2.5rem 2rem',
                 textAlign: 'center',
                 animation: `fadeInUp 0.8s ease-out ${idx * 0.2}s backwards`,
-                transition: 'all 0.3s ease'
+                transition: 'all 0.3s ease',
+                cursor: 'pointer'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-10px)';
+                e.currentTarget.style.transform = 'translateY(-10px) scale(1.02)';
                 e.currentTarget.style.background = 'rgba(250, 250, 250, 0.08)';
                 e.currentTarget.style.borderColor = 'rgba(212, 212, 212, 0.3)';
+                e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.transform = 'translateY(0) scale(1)';
                 e.currentTarget.style.background = 'rgba(250, 250, 250, 0.05)';
                 e.currentTarget.style.borderColor = 'rgba(212, 212, 212, 0.1)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
               <div style={{
@@ -169,17 +172,10 @@ export function LandingPage({ onNavigate }) {
               <p style={{
                 fontSize: '1rem',
                 color: '#d4d4d4',
-                lineHeight: '1.6',
-                marginBottom: '1.5rem'
+                lineHeight: '1.6'
               }}>
                 {feature.description}
               </p>
-              <CartoonButton
-                label="Launch →"
-                color={feature.color}
-                onClick={feature.action}
-                size="sm"
-              />
             </div>
           ))}
         </div>

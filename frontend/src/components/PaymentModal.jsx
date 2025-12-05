@@ -2,20 +2,20 @@
  * Payment Modal
  * x402 payment flow for premium features
  * Themed for Chimera with skip option for demo
+ * Glass morphism design
  */
 
 import { useState } from 'react';
 import { useSignTypedData, useAccount } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
+import { GlassPanel } from './GlassPanel';
 
 // Generate EIP-712 typed data for payment
-// Note: verifyingContract is omitted since we use off-chain signature verification
 function generateTypedData(paymentRequest) {
   const domain = {
     name: 'Chimera',
     version: '1',
     chainId: paymentRequest.chainId || 97
-    // verifyingContract intentionally omitted - not required for off-chain verification
   };
 
   const types = {
@@ -61,12 +61,10 @@ export function PaymentModal({
   const handlePay = async () => {
     setIsPaying(true);
     try {
-      // Generate typed data from payment request
       const typedData = generateTypedData(paymentRequest);
       
       console.log('Signing payment with typed data:', typedData);
       
-      // Sign EIP-712 payment
       const signature = await signTypedDataAsync({
         domain: typedData.domain,
         types: typedData.types,
@@ -76,7 +74,6 @@ export function PaymentModal({
 
       console.log('Payment signed:', signature.slice(0, 20) + '...');
 
-      // Verify payment with backend
       const response = await fetch('http://localhost:3000/api/payments/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -96,7 +93,6 @@ export function PaymentModal({
       }
     } catch (error) {
       console.error('Payment error:', error);
-      // Don't alert if user rejected the signature
       if (!error.message?.includes('User rejected') && !error.message?.includes('user rejected')) {
         alert('Payment failed: ' + error.message);
       }
@@ -132,102 +128,139 @@ export function PaymentModal({
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 50,
+        padding: '1rem',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(8px)',
+      }}
     >
-      <div 
-        className="rounded-3xl max-w-md w-full overflow-hidden"
-        style={{ 
-          backgroundColor: '#1a1a2e',
-          border: '2px solid #333',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+      <GlassPanel 
+        variant="modal"
+        hover={false}
+        style={{
+          maxWidth: '420px',
+          width: '100%',
+          overflow: 'hidden',
         }}
       >
         {/* Header */}
-        <div 
-          className="p-6 text-center"
-          style={{ 
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(234, 179, 8, 0.1) 100%)',
-            borderBottom: '1px solid #333'
-          }}
-        >
-          <div className="text-4xl mb-3">💰</div>
-          <h2 className="text-xl font-bold text-white m-0">Payment Required</h2>
-          <p className="text-gray-400 text-sm mt-2 mb-0">
+        <div style={{ 
+          padding: '1.5rem',
+          textAlign: 'center',
+          background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>💰</div>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#f5f5f5', margin: 0 }}>
+            Payment Required
+          </h2>
+          <p style={{ color: '#a3a3a3', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
             {paymentRequest.description || 'Premium Feature'}
           </p>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Amount Display */}
-          <div 
-            className="rounded-xl p-4 text-center"
-            style={{ backgroundColor: '#252542' }}
+          <GlassPanel 
+            variant="surface" 
+            hover={false}
+            style={{ padding: '1.25rem', textAlign: 'center' }}
           >
-            <div className="text-gray-400 text-sm mb-1">Amount</div>
-            <div className="text-3xl font-bold text-amber-400">
+            <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Amount</div>
+            <div style={{ 
+              fontSize: '2rem', 
+              fontWeight: '700', 
+              color: '#fbbf24',
+              textShadow: '0 0 30px rgba(251, 191, 36, 0.3)'
+            }}>
               {paymentRequest.amount} {paymentRequest.token}
             </div>
-            <div className="text-gray-500 text-xs mt-2">
+            <div style={{ color: '#737373', fontSize: '0.8rem', marginTop: '0.5rem' }}>
               ~${(parseFloat(paymentRequest.amount || 0) * 300).toFixed(2)} USD
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Payment Details */}
-          <div 
-            className="rounded-xl p-4 text-sm"
-            style={{ backgroundColor: '#252542' }}
+          <GlassPanel 
+            variant="surface" 
+            hover={false}
+            style={{ padding: '1rem 1.25rem', fontSize: '0.9rem' }}
           >
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Network</span>
-                <span className="text-white">BSC Testnet</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#a3a3a3' }}>Network</span>
+                <span style={{ color: '#f5f5f5' }}>BSC Testnet</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Recipient</span>
-                <span className="text-white font-mono text-xs">
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#a3a3a3' }}>Recipient</span>
+                <span style={{ color: '#f5f5f5', fontFamily: 'monospace', fontSize: '0.8rem' }}>
                   {paymentRequest.recipient?.slice(0, 8)}...{paymentRequest.recipient?.slice(-6)}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Expires</span>
-                <span className="text-amber-400">
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#a3a3a3' }}>Expires</span>
+                <span style={{ color: '#fbbf24' }}>
                   {paymentRequest.expiresAt ? new Date(paymentRequest.expiresAt).toLocaleTimeString() : 'N/A'}
                 </span>
               </div>
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Info Box */}
-          <div 
-            className="rounded-xl p-4 text-sm"
-            style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}
+          <GlassPanel 
+            variant="surface" 
+            hover={false}
+            style={{ 
+              padding: '1rem 1.25rem', 
+              fontSize: '0.85rem',
+              background: 'rgba(34, 197, 94, 0.1)',
+              border: '1px solid rgba(34, 197, 94, 0.2)'
+            }}
           >
-            <div className="text-green-400 font-medium mb-1">🔒 Secure Payment</div>
-            <div className="text-green-300 text-xs">
+            <div style={{ color: '#86efac', fontWeight: '600', marginBottom: '0.25rem' }}>
+              🔒 Secure Payment
+            </div>
+            <div style={{ color: '#86efac', opacity: 0.9, fontSize: '0.8rem' }}>
               You'll sign an EIP-712 message to authorize. No tokens are transferred until service is delivered.
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Demo Mode Banner */}
           {demoMode && paymentRequest.demoSkipAllowed && (
-            <div 
-              className="rounded-xl p-4 text-center"
-              style={{ backgroundColor: 'rgba(147, 51, 234, 0.1)', border: '1px solid rgba(147, 51, 234, 0.3)' }}
+            <GlassPanel 
+              variant="surface" 
+              hover={false}
+              style={{ 
+                padding: '1rem 1.25rem', 
+                textAlign: 'center',
+                background: 'rgba(168, 85, 247, 0.1)',
+                border: '1px solid rgba(168, 85, 247, 0.2)'
+              }}
             >
-              <div className="text-purple-400 font-medium text-sm">✨ Demo Mode Active</div>
-              <div className="text-purple-300 text-xs mt-1">
+              <div style={{ color: '#c4b5fd', fontWeight: '600', fontSize: '0.9rem' }}>
+                ✨ Demo Mode Active
+              </div>
+              <div style={{ color: '#c4b5fd', opacity: 0.9, fontSize: '0.8rem', marginTop: '0.25rem' }}>
                 You can skip payment for testing purposes
               </div>
-            </div>
+            </GlassPanel>
           )}
         </div>
 
         {/* Actions */}
-        <div 
-          className="p-6 flex flex-col gap-3"
-          style={{ borderTop: '1px solid #333' }}
-        >
+        <div style={{ 
+          padding: '1.5rem',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem'
+        }}>
           <CartoonButton
             label={isPaying ? 'Signing...' : '✍️ Sign & Pay'}
             color="bg-amber-400"
@@ -247,12 +280,22 @@ export function PaymentModal({
           <button
             onClick={onCancel}
             disabled={isPaying || isSkipping}
-            className="text-gray-400 hover:text-white text-sm transition-colors"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#a3a3a3',
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              padding: '0.5rem',
+              transition: 'color 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.color = '#f5f5f5'}
+            onMouseLeave={(e) => e.target.style.color = '#a3a3a3'}
           >
             Cancel
           </button>
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 }

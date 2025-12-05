@@ -1,10 +1,12 @@
 /**
  * Contract Ingestor Component
  * Analyzes existing deployed contracts
+ * Glass morphism design
  */
 
 import { useState } from 'react';
 import { CartoonButton } from './CartoonButton';
+import { GlassPanel, glassInputStyle } from './GlassPanel';
 
 export function ContractIngestor() {
   const [address, setAddress] = useState('');
@@ -41,27 +43,44 @@ export function ContractIngestor() {
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-        <span className="text-3xl">🔍</span>
+    <div style={{ padding: '1.5rem' }}>
+      <h2 style={{ 
+        fontSize: '1.75rem', 
+        fontWeight: '700', 
+        color: '#f5f5f5', 
+        marginBottom: '0.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem'
+      }}>
+        <span style={{ fontSize: '2rem' }}>🔍</span>
         Contract Analyzer
       </h2>
-      <p className="text-gray-400 mb-6">
+      <p style={{ color: '#a3a3a3', marginBottom: '1.5rem' }}>
         Analyze any deployed contract on BSC Testnet
       </p>
 
       {/* Input */}
-      <div className="mb-6">
-        <label className="block text-gray-300 mb-2 text-sm">Contract Address</label>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+          Contract Address
+        </label>
         <input
           type="text"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="0x..."
-          className="w-full p-4 rounded-xl text-white text-lg"
-          style={{ 
-            backgroundColor: '#252542',
-            border: '2px solid #333'
+          style={{
+            ...glassInputStyle,
+            fontSize: '1rem',
+          }}
+          onFocus={(e) => {
+            e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+            e.target.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.1)';
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            e.target.style.boxShadow = 'none';
           }}
         />
       </div>
@@ -75,117 +94,194 @@ export function ContractIngestor() {
 
       {/* Error */}
       {error && (
-        <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-          <div className="text-red-400 font-semibold">Error</div>
-          <div className="text-red-300 text-sm">{error}</div>
-        </div>
+        <GlassPanel 
+          variant="surface" 
+          hover={false}
+          style={{
+            marginTop: '1.5rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <div style={{ color: '#fca5a5', fontWeight: '600' }}>Error</div>
+          <div style={{ color: '#fca5a5', fontSize: '0.9rem', opacity: 0.9 }}>{error}</div>
+        </GlassPanel>
       )}
 
       {/* Results */}
       {result && (
-        <div className="mt-6 space-y-4">
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Basic Info Card */}
-          <div className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-            <div className="flex items-center justify-between mb-4">
+          <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <div>
-                <div className="text-gray-400 text-sm">Contract Type</div>
-                <div className="text-xl font-bold text-white">
+                <div style={{ color: '#a3a3a3', fontSize: '0.85rem' }}>Contract Type</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#f5f5f5' }}>
                   {result.contractType || 'Unknown'}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-gray-400 text-sm">Bytecode Size</div>
-                <div className="text-amber-400 font-mono">{result.bytecodeSize} bytes</div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: '#a3a3a3', fontSize: '0.85rem' }}>Bytecode Size</div>
+                <div style={{ color: '#fbbf24', fontFamily: 'monospace' }}>{result.bytecodeSize} bytes</div>
               </div>
             </div>
             
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               {result.isContract ? (
-                <span className="px-3 py-1 rounded-full text-xs bg-green-500/20 text-green-400">
+                <span style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '999px', 
+                  fontSize: '0.8rem',
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  color: '#86efac'
+                }}>
                   ✓ Smart Contract
                 </span>
               ) : (
-                <span className="px-3 py-1 rounded-full text-xs bg-red-500/20 text-red-400">
+                <span style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '999px', 
+                  fontSize: '0.8rem',
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#fca5a5'
+                }}>
                   EOA (Not Contract)
                 </span>
               )}
               {result.verified && (
-                <span className="px-3 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400">
+                <span style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '999px', 
+                  fontSize: '0.8rem',
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  color: '#93c5fd'
+                }}>
                   ✓ Verified on BSCScan
                 </span>
               )}
               {result.interfaces?.map(iface => (
-                <span key={iface} className="px-3 py-1 rounded-full text-xs bg-purple-500/20 text-purple-400">
+                <span key={iface} style={{ 
+                  padding: '0.5rem 1rem', 
+                  borderRadius: '999px', 
+                  fontSize: '0.8rem',
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  color: '#c4b5fd'
+                }}>
                   {iface}
                 </span>
               ))}
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Token Info */}
           {result.tokenInfo && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-              <div className="text-gray-400 text-sm mb-2">Token Info</div>
-              <div className="grid grid-cols-2 gap-4">
+            <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+              <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.75rem' }}>Token Info</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <div className="text-xs text-gray-500">Name</div>
-                  <div className="text-white font-semibold">{result.tokenInfo.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#737373' }}>Name</div>
+                  <div style={{ color: '#f5f5f5', fontWeight: '600' }}>{result.tokenInfo.name}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-gray-500">Symbol</div>
-                  <div className="text-amber-400 font-semibold">{result.tokenInfo.symbol}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#737373' }}>Symbol</div>
+                  <div style={{ color: '#fbbf24', fontWeight: '600' }}>{result.tokenInfo.symbol}</div>
                 </div>
                 {result.tokenInfo.totalSupply && (
-                  <div className="col-span-2">
-                    <div className="text-xs text-gray-500">Total Supply</div>
-                    <div className="text-white font-mono text-sm">{result.tokenInfo.totalSupply}</div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#737373' }}>Total Supply</div>
+                    <div style={{ color: '#f5f5f5', fontFamily: 'monospace', fontSize: '0.9rem' }}>{result.tokenInfo.totalSupply}</div>
                   </div>
                 )}
               </div>
-            </div>
+            </GlassPanel>
           )}
 
           {/* Functions */}
           {result.functions && result.functions.length > 0 && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-              <div className="text-gray-400 text-sm mb-3">Functions ({result.functions.length})</div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
+            <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+              <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                Functions ({result.functions.length})
+              </div>
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '0.5rem', 
+                maxHeight: '200px', 
+                overflowY: 'auto',
+                paddingRight: '0.5rem'
+              }}>
                 {result.functions.map((fn, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span className={`px-2 py-0.5 rounded text-xs ${
-                      fn.stateMutability === 'view' || fn.stateMutability === 'pure' 
-                        ? 'bg-green-500/20 text-green-400' 
-                        : 'bg-amber-500/20 text-amber-400'
-                    }`}>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <span style={{ 
+                      padding: '0.25rem 0.5rem', 
+                      borderRadius: '6px', 
+                      fontSize: '0.7rem',
+                      background: fn.stateMutability === 'view' || fn.stateMutability === 'pure' 
+                        ? 'rgba(34, 197, 94, 0.15)' 
+                        : 'rgba(245, 158, 11, 0.15)',
+                      border: fn.stateMutability === 'view' || fn.stateMutability === 'pure'
+                        ? '1px solid rgba(34, 197, 94, 0.3)'
+                        : '1px solid rgba(245, 158, 11, 0.3)',
+                      color: fn.stateMutability === 'view' || fn.stateMutability === 'pure' 
+                        ? '#86efac' 
+                        : '#fbbf24'
+                    }}>
                       {fn.stateMutability}
                     </span>
-                    <code className="text-gray-300 font-mono text-xs">{fn.signature}</code>
+                    <code style={{ color: '#d4d4d4', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      {fn.signature}
+                    </code>
                   </div>
                 ))}
               </div>
-            </div>
+            </GlassPanel>
           )}
 
           {/* Source Code */}
           {result.sourceCode && (
-            <details className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-              <summary className="text-gray-400 text-sm cursor-pointer">
+            <details style={{ 
+              borderRadius: '16px', 
+              overflow: 'hidden',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <summary style={{ 
+                padding: '1rem 1.25rem', 
+                color: '#a3a3a3', 
+                fontSize: '0.9rem', 
+                cursor: 'pointer',
+                background: 'rgba(255, 255, 255, 0.03)'
+              }}>
                 View Source Code
               </summary>
-              <pre className="mt-3 p-3 rounded-lg text-xs overflow-auto max-h-64 text-gray-300"
-                   style={{ backgroundColor: '#1a1a2e' }}>
+              <pre style={{
+                margin: 0,
+                padding: '1rem 1.25rem',
+                fontSize: '0.8rem',
+                overflow: 'auto',
+                maxHeight: '300px',
+                color: '#d4d4d4',
+                background: 'rgba(0, 0, 0, 0.2)'
+              }}>
                 {result.sourceCode}
               </pre>
             </details>
           )}
 
           {/* Links */}
-          <div className="flex gap-4">
+          <div style={{ display: 'flex', gap: '1.5rem' }}>
             <a 
               href={result.links?.bscScan}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-amber-400 hover:text-amber-300 text-sm"
+              style={{ color: '#fbbf24', fontSize: '0.9rem', textDecoration: 'none' }}
+              onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+              onMouseLeave={(e) => e.target.style.opacity = '1'}
             >
               View on BSCScan →
             </a>
@@ -194,7 +290,9 @@ export function ContractIngestor() {
                 href={result.links?.bscScanCode}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 text-sm"
+                style={{ color: '#67e8f9', fontSize: '0.9rem', textDecoration: 'none' }}
+                onMouseEnter={(e) => e.target.style.opacity = '0.8'}
+                onMouseLeave={(e) => e.target.style.opacity = '1'}
               >
                 View Code →
               </a>
@@ -205,4 +303,3 @@ export function ContractIngestor() {
     </div>
   );
 }
-

@@ -2,10 +2,13 @@
  * Enhanced Transaction Preview Modal
  * Shows transaction details, safety scores, policy checks, and gas info
  * Themed to match Chimera design system
+ * Glass morphism design
  */
 
 import { useState } from 'react';
 import { CartoonButton } from './CartoonButton';
+import { GlassPanel } from './GlassPanel';
+import { QuickFixSuggestions } from './QuickFixSuggestions';
 
 export function TransactionPreview({ 
   code, 
@@ -16,7 +19,8 @@ export function TransactionPreview({
   isOpen,
   estimatedGas = '0',
   contractName = 'Contract',
-  policyCheck = null
+  policyCheck = null,
+  onApplyFix = null
 }) {
   const [isSigning, setIsSigning] = useState(false);
   const [showFullCode, setShowFullCode] = useState(false);
@@ -33,15 +37,15 @@ export function TransactionPreview({
   };
 
   const getScoreColor = (score) => {
-    if (score >= 90) return '#22c55e'; // green
-    if (score >= 70) return '#f59e0b'; // amber
-    return '#ef4444'; // red
+    if (score >= 90) return '#86efac';
+    if (score >= 70) return '#fbbf24';
+    return '#fca5a5';
   };
 
   const getRiskLevel = (score) => {
-    if (score >= 90) return { level: 'Low Risk', color: '#22c55e', bg: '#dcfce7' };
-    if (score >= 70) return { level: 'Medium Risk', color: '#f59e0b', bg: '#fef3c7' };
-    return { level: 'High Risk', color: '#ef4444', bg: '#fee2e2' };
+    if (score >= 90) return { level: 'Low Risk', color: '#86efac', bg: 'rgba(34, 197, 94, 0.15)' };
+    if (score >= 70) return { level: 'Medium Risk', color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.15)' };
+    return { level: 'High Risk', color: '#fca5a5', bg: 'rgba(239, 68, 68, 0.15)' };
   };
 
   const risk = auditResult ? getRiskLevel(auditResult.score) : null;
@@ -49,214 +53,254 @@ export function TransactionPreview({
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.8)' }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 50,
+        padding: '1rem',
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        backdropFilter: 'blur(8px)',
+      }}
     >
-      <div 
-        className="rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-auto"
-        style={{ 
-          backgroundColor: '#1a1a2e',
-          border: '2px solid #333',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+      <GlassPanel 
+        variant="modal"
+        hover={false}
+        style={{
+          maxWidth: '640px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflow: 'auto',
         }}
       >
         {/* Header */}
-        <div 
-          className="p-6 border-b"
-          style={{ borderColor: '#333' }}
-        >
-          <h2 className="text-2xl font-bold text-white m-0 flex items-center gap-3">
-            <span className="text-3xl">📋</span>
+        <div style={{ 
+          padding: '1.5rem',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          <h2 style={{ 
+            fontSize: '1.5rem', 
+            fontWeight: '700', 
+            color: '#f5f5f5', 
+            margin: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+          }}>
+            <span style={{ fontSize: '1.75rem' }}>📋</span>
             Transaction Preview
           </h2>
-          <p className="text-gray-400 mt-2 mb-0">
+          <p style={{ color: '#a3a3a3', marginTop: '0.5rem', marginBottom: 0 }}>
             Review the details before signing
           </p>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Action Summary Card */}
-          <div 
-            className="rounded-xl p-4"
-            style={{ backgroundColor: '#252542' }}
-          >
-            <div className="flex items-center justify-between">
+          <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div className="text-gray-400 text-sm mb-1">Action</div>
-                <div className="text-white font-semibold text-lg">
+                <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Action</div>
+                <div style={{ color: '#f5f5f5', fontWeight: '600', fontSize: '1.1rem' }}>
                   {intent?.type === 'deploy_contract' ? '🚀 Deploy Contract' :
                    intent?.type === 'transfer' ? '💸 Transfer Tokens' :
                    intent?.type === 'call_contract' ? '📞 Call Contract' :
                    intent?.type || 'Execute Transaction'}
                 </div>
                 {contractName && (
-                  <div className="text-amber-400 text-sm mt-1">
+                  <div style={{ color: '#fbbf24', fontSize: '0.9rem', marginTop: '0.25rem' }}>
                     {contractName}
                   </div>
                 )}
               </div>
-              <div 
-                className="text-4xl p-3 rounded-xl"
-                style={{ backgroundColor: '#1a1a2e' }}
-              >
+              <div style={{ 
+                fontSize: '2.5rem',
+                padding: '0.75rem',
+                borderRadius: '12px',
+                background: 'rgba(0, 0, 0, 0.2)'
+              }}>
                 {intent?.type === 'deploy_contract' ? '📄' :
                  intent?.type === 'transfer' ? '💰' :
                  intent?.type === 'call_contract' ? '⚡' : '🔧'}
               </div>
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Safety Score Card */}
           {auditResult && (
-            <div 
-              className="rounded-xl p-4"
-              style={{ backgroundColor: risk.bg }}
+            <GlassPanel 
+              variant="surface" 
+              hover={false}
+              style={{ 
+                padding: '1.25rem',
+                background: risk.bg,
+                border: `1px solid ${risk.color}30`
+              }}
             >
-              <div className="flex items-center justify-between">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div className="text-sm font-medium" style={{ color: risk.color }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: '600', color: risk.color }}>
                     Security Audit
                   </div>
-                  <div 
-                    className="text-2xl font-bold"
-                    style={{ color: risk.color }}
-                  >
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: risk.color }}>
                     {risk.level}
                   </div>
-                  <div className="text-sm mt-1" style={{ color: risk.color, opacity: 0.8 }}>
+                  <div style={{ fontSize: '0.85rem', marginTop: '0.5rem', color: risk.color, opacity: 0.8 }}>
                     {auditResult.passed ? '✅ Passed threshold' : '⚠️ Below threshold'}
                   </div>
                 </div>
-                <div 
-                  className="text-5xl font-bold"
-                  style={{ color: getScoreColor(auditResult.score) }}
-                >
+                <div style={{ 
+                  fontSize: '3rem', 
+                  fontWeight: '700',
+                  color: getScoreColor(auditResult.score),
+                  textShadow: `0 0 30px ${getScoreColor(auditResult.score)}40`
+                }}>
                   {auditResult.score}
-                  <span className="text-2xl">%</span>
+                  <span style={{ fontSize: '1.5rem' }}>%</span>
                 </div>
               </div>
               
               {/* Issue Summary */}
               {auditResult.summary && (
-                <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-                  <div className="rounded-lg p-2" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
-                    <div className="text-red-500 font-bold">{auditResult.summary.criticalIssues || 0}</div>
-                    <div className="text-xs text-red-400">Critical</div>
+                <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
+                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(239, 68, 68, 0.2)' }}>
+                    <div style={{ fontWeight: '700', color: '#fca5a5' }}>{auditResult.summary.criticalIssues || 0}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#fca5a5', opacity: 0.8 }}>Critical</div>
                   </div>
-                  <div className="rounded-lg p-2" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)' }}>
-                    <div className="text-amber-500 font-bold">{auditResult.summary.highIssues || 0}</div>
-                    <div className="text-xs text-amber-400">High</div>
+                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(245, 158, 11, 0.2)' }}>
+                    <div style={{ fontWeight: '700', color: '#fbbf24' }}>{auditResult.summary.highIssues || 0}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#fbbf24', opacity: 0.8 }}>High</div>
                   </div>
-                  <div className="rounded-lg p-2" style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)' }}>
-                    <div className="text-yellow-500 font-bold">{auditResult.summary.mediumIssues || 0}</div>
-                    <div className="text-xs text-yellow-400">Medium</div>
+                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(234, 179, 8, 0.2)' }}>
+                    <div style={{ fontWeight: '700', color: '#facc15' }}>{auditResult.summary.mediumIssues || 0}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#facc15', opacity: 0.8 }}>Medium</div>
                   </div>
-                  <div className="rounded-lg p-2" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)' }}>
-                    <div className="text-green-500 font-bold">{auditResult.summary.lowIssues || 0}</div>
-                    <div className="text-xs text-green-400">Low</div>
+                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(34, 197, 94, 0.2)' }}>
+                    <div style={{ fontWeight: '700', color: '#86efac' }}>{auditResult.summary.lowIssues || 0}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#86efac', opacity: 0.8 }}>Low</div>
                   </div>
                 </div>
               )}
 
               {auditResult.report && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-sm font-medium" style={{ color: risk.color }}>
+                <details style={{ marginTop: '0.75rem' }}>
+                  <summary style={{ cursor: 'pointer', fontSize: '0.85rem', fontWeight: '600', color: risk.color }}>
                     View Full Report
                   </summary>
-                  <pre 
-                    className="mt-2 p-3 rounded-lg text-xs overflow-auto max-h-40"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.2)', color: '#666' }}
-                  >
+                  <pre style={{ 
+                    marginTop: '0.5rem',
+                    padding: '0.75rem',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    overflow: 'auto',
+                    maxHeight: '150px',
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    color: '#a3a3a3',
+                    whiteSpace: 'pre-wrap',
+                    wordWrap: 'break-word'
+                  }}>
                     {auditResult.report}
                   </pre>
                 </details>
               )}
-            </div>
+            </GlassPanel>
+          )}
+
+          {/* Quick Fix Suggestions */}
+          {auditResult && auditResult.report && onApplyFix && (
+            <QuickFixSuggestions 
+              auditReport={auditResult.report}
+              contractCode={code}
+              onApplyFix={onApplyFix}
+            />
           )}
 
           {/* Gas Cost Card */}
-          <div 
-            className="rounded-xl p-4 flex items-center justify-between"
-            style={{ backgroundColor: '#252542' }}
-          >
-            <div>
-              <div className="text-gray-400 text-sm mb-1">Gas Cost</div>
-              <div className="text-white font-semibold text-lg">
-                $0.00
+          <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Gas Cost</div>
+                <div style={{ color: '#f5f5f5', fontWeight: '600', fontSize: '1.1rem' }}>$0.00</div>
+                <div style={{ color: '#86efac', fontSize: '0.85rem' }}>✨ Sponsored by Chimera</div>
               </div>
-              <div className="text-green-400 text-sm">
-                ✨ Sponsored by Chimera
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: '#737373', fontSize: '0.8rem' }}>Estimated</div>
+                <div style={{ color: '#a3a3a3' }}>~{estimatedGas || '0.001'} tBNB</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-gray-500 text-sm">Estimated</div>
-              <div className="text-gray-400">~{estimatedGas || '0.001'} tBNB</div>
-            </div>
-          </div>
+          </GlassPanel>
 
           {/* Policy Check Card */}
-          <div 
-            className="rounded-xl p-4"
-            style={{ backgroundColor: '#252542' }}
-          >
-            <div className="text-gray-400 text-sm mb-3">Policy Check</div>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-green-400">✓</span>
-                <span className="text-gray-300">Within spend limits</span>
+          <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+            <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.75rem' }}>Policy Check</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <span style={{ color: '#86efac' }}>✓</span>
+                <span style={{ color: '#d4d4d4' }}>Within spend limits</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-green-400">✓</span>
-                <span className="text-gray-300">Verified transaction type</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <span style={{ color: '#86efac' }}>✓</span>
+                <span style={{ color: '#d4d4d4' }}>Verified transaction type</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className={canExecute ? 'text-green-400' : 'text-red-400'}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <span style={{ color: canExecute ? '#86efac' : '#fca5a5' }}>
                   {canExecute ? '✓' : '✗'}
                 </span>
-                <span className="text-gray-300">
+                <span style={{ color: '#d4d4d4' }}>
                   Audit threshold {canExecute ? 'passed' : 'not met'}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-green-400">✓</span>
-                <span className="text-gray-300">Rate limit OK</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <span style={{ color: '#86efac' }}>✓</span>
+                <span style={{ color: '#d4d4d4' }}>Rate limit OK</span>
               </div>
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Contract Code Preview */}
           {code && (
-            <div 
-              className="rounded-xl p-4"
-              style={{ backgroundColor: '#252542' }}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-gray-400 text-sm">Contract Code</div>
+            <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div style={{ color: '#a3a3a3', fontSize: '0.85rem' }}>Contract Code</div>
                 <button 
                   onClick={() => setShowFullCode(!showFullCode)}
-                  className="text-amber-400 text-sm hover:text-amber-300"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fbbf24',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
                 >
                   {showFullCode ? 'Collapse' : 'Expand'}
                 </button>
               </div>
-              <pre 
-                className={`text-xs overflow-auto rounded-lg p-3 ${showFullCode ? 'max-h-96' : 'max-h-32'}`}
-                style={{ backgroundColor: '#1a1a2e', color: '#94a3b8' }}
-              >
+              <pre style={{
+                fontSize: '0.8rem',
+                overflow: 'auto',
+                borderRadius: '12px',
+                padding: '1rem',
+                background: 'rgba(0, 0, 0, 0.3)',
+                color: '#a3a3a3',
+                maxHeight: showFullCode ? '400px' : '120px',
+                margin: 0
+              }}>
                 {code}
               </pre>
-            </div>
+            </GlassPanel>
           )}
 
           {/* BSCScan Link */}
           {intent?.type === 'deploy_contract' && (
-            <div className="text-center text-sm text-gray-500">
+            <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#737373' }}>
               📍 Will deploy to BSC Testnet • 
               <a 
                 href="https://testnet.bscscan.com" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-amber-400 hover:text-amber-300 ml-1"
+                style={{ color: '#fbbf24', marginLeft: '0.25rem', textDecoration: 'none' }}
               >
                 View on BSCScan →
               </a>
@@ -265,24 +309,35 @@ export function TransactionPreview({
 
           {/* Warning for failed audit */}
           {auditResult && !auditResult.passed && (
-            <div 
-              className="rounded-xl p-4 text-center"
-              style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+            <GlassPanel 
+              variant="surface" 
+              hover={false}
+              style={{ 
+                padding: '1rem 1.25rem', 
+                textAlign: 'center',
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.3)'
+              }}
             >
-              <div className="text-red-400 font-semibold mb-1">⚠️ Audit Below Threshold</div>
-              <div className="text-red-300 text-sm">
+              <div style={{ color: '#fca5a5', fontWeight: '600', marginBottom: '0.25rem' }}>
+                ⚠️ Audit Below Threshold
+              </div>
+              <div style={{ color: '#fca5a5', opacity: 0.9, fontSize: '0.85rem' }}>
                 The security audit score is below the required threshold. 
                 Signing is disabled for your protection.
               </div>
-            </div>
+            </GlassPanel>
           )}
         </div>
 
         {/* Footer Actions */}
-        <div 
-          className="p-6 border-t flex justify-end gap-4"
-          style={{ borderColor: '#333' }}
-        >
+        <div style={{ 
+          padding: '1.5rem',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '1rem'
+        }}>
           <CartoonButton
             label="Cancel"
             color="bg-gray-500"
@@ -296,7 +351,7 @@ export function TransactionPreview({
             disabled={isSigning || !canExecute}
           />
         </div>
-      </div>
+      </GlassPanel>
     </div>
   );
 }

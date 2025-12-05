@@ -2,12 +2,14 @@
  * Contract Auditor Component
  * Audit contracts by source code or address
  * Integrated with x402 micropayments
+ * Glass morphism design
  */
 
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
+import { GlassPanel, glassInputStyle } from './GlassPanel';
 
 export function ContractAuditor() {
   const { address: userAddress, isConnected } = useAccount();
@@ -101,40 +103,68 @@ export function ContractAuditor() {
   };
 
   const getRiskBadge = (score) => {
-    if (score >= 90) return { text: 'Low Risk', bg: 'bg-green-500/20', color: 'text-green-400' };
-    if (score >= 70) return { text: 'Medium Risk', bg: 'bg-amber-500/20', color: 'text-amber-400' };
-    return { text: 'High Risk', bg: 'bg-red-500/20', color: 'text-red-400' };
+    if (score >= 90) return { text: 'Low Risk', color: '#86efac' };
+    if (score >= 70) return { text: 'Medium Risk', color: '#fbbf24' };
+    return { text: 'High Risk', color: '#fca5a5' };
   };
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-        <span className="text-3xl">🛡️</span>
+    <div style={{ padding: '1.5rem' }}>
+      <h2 style={{ 
+        fontSize: '1.75rem', 
+        fontWeight: '700', 
+        color: '#f5f5f5', 
+        marginBottom: '0.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem'
+      }}>
+        <span style={{ fontSize: '2rem' }}>🛡️</span>
         Security Auditor
       </h2>
-      <p className="text-gray-400 mb-6">
+      <p style={{ color: '#a3a3a3', marginBottom: '1.5rem' }}>
         AI-powered smart contract security analysis
       </p>
 
       {/* Mode Toggle */}
-      <div className="flex gap-2 mb-6">
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         <button
           onClick={() => setMode('code')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-            mode === 'code' 
-              ? 'bg-amber-400 text-neutral-800' 
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
+          style={{
+            padding: '0.75rem 1.25rem',
+            borderRadius: '12px',
+            fontSize: '0.9rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            background: mode === 'code' 
+              ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%)'
+              : 'rgba(255, 255, 255, 0.08)',
+            border: mode === 'code'
+              ? '1px solid rgba(251, 191, 36, 0.4)'
+              : '1px solid rgba(255, 255, 255, 0.1)',
+            color: mode === 'code' ? '#fbbf24' : '#a3a3a3',
+          }}
         >
           📝 Source Code
         </button>
         <button
           onClick={() => setMode('address')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-            mode === 'address' 
-              ? 'bg-amber-400 text-neutral-800' 
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-          }`}
+          style={{
+            padding: '0.75rem 1.25rem',
+            borderRadius: '12px',
+            fontSize: '0.9rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            background: mode === 'address' 
+              ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%)'
+              : 'rgba(255, 255, 255, 0.08)',
+            border: mode === 'address'
+              ? '1px solid rgba(251, 191, 36, 0.4)'
+              : '1px solid rgba(255, 255, 255, 0.1)',
+            color: mode === 'address' ? '#fbbf24' : '#a3a3a3',
+          }}
         >
           🔗 Contract Address
         </button>
@@ -142,27 +172,38 @@ export function ContractAuditor() {
 
       {/* Input */}
       {mode === 'code' ? (
-        <div className="mb-6">
-          <label className="block text-gray-300 mb-2 text-sm">Solidity Source Code</label>
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+            Solidity Source Code
+          </label>
           <textarea
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="pragma solidity ^0.8.0;
+            placeholder={`pragma solidity ^0.8.0;
 
 contract MyContract {
     // Your code here...
-}"
+}`}
             rows={12}
-            className="w-full p-4 rounded-xl text-white font-mono text-sm"
-            style={{ 
-              backgroundColor: '#252542',
-              border: '2px solid #333'
+            style={{
+              ...glassInputStyle,
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              resize: 'vertical',
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              e.target.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              e.target.style.boxShadow = 'none';
             }}
           />
         </div>
       ) : (
-        <div className="mb-6">
-          <label className="block text-gray-300 mb-2 text-sm">
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ display: 'block', color: '#d4d4d4', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
             Contract Address (must be verified on BSCScan)
           </label>
           <input
@@ -170,10 +211,17 @@ contract MyContract {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             placeholder="0x..."
-            className="w-full p-4 rounded-xl text-white text-lg"
-            style={{ 
-              backgroundColor: '#252542',
-              border: '2px solid #333'
+            style={{
+              ...glassInputStyle,
+              fontSize: '1rem',
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              e.target.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              e.target.style.boxShadow = 'none';
             }}
           />
         </div>
@@ -198,97 +246,163 @@ contract MyContract {
 
       {/* Error */}
       {error && (
-        <div className="mt-6 p-4 rounded-xl" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-          <div className="text-red-400 font-semibold">Error</div>
-          <div className="text-red-300 text-sm">{error}</div>
-        </div>
+        <GlassPanel 
+          variant="surface" 
+          hover={false}
+          style={{
+            marginTop: '1.5rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <div style={{ color: '#fca5a5', fontWeight: '600' }}>Error</div>
+          <div style={{ color: '#fca5a5', fontSize: '0.9rem', opacity: 0.9 }}>{error}</div>
+        </GlassPanel>
       )}
 
       {/* Results */}
       {result && (
-        <div className="mt-6 space-y-4">
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* Score Card */}
-          <div 
-            className="rounded-xl p-6"
+          <GlassPanel 
+            variant="surface"
+            hover={false}
             style={{ 
-              backgroundColor: result.passed 
-                ? 'rgba(34, 197, 94, 0.1)' 
-                : 'rgba(239, 68, 68, 0.1)',
-              border: `2px solid ${result.passed ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`
+              padding: '1.5rem',
+              background: result.passed 
+                ? 'rgba(34, 197, 94, 0.12)' 
+                : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${result.passed ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
             }}
           >
-            <div className="flex items-center justify-between">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <div className="text-sm text-gray-400 mb-1">Security Score</div>
-                <div className={`text-lg font-medium ${getRiskBadge(result.score).color}`}>
+                <div style={{ fontSize: '0.85rem', color: '#a3a3a3', marginBottom: '0.25rem' }}>Security Score</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: '600', color: getRiskBadge(result.score).color }}>
                   {getRiskBadge(result.score).text}
                 </div>
-                <div className={`text-sm mt-2 ${result.passed ? 'text-green-400' : 'text-red-400'}`}>
+                <div style={{ 
+                  fontSize: '0.9rem', 
+                  marginTop: '0.5rem', 
+                  color: result.passed ? '#86efac' : '#fca5a5' 
+                }}>
                   {result.passed ? '✅ Passed Threshold' : '⚠️ Below Threshold'}
                 </div>
               </div>
-              <div 
-                className="text-6xl font-bold"
-                style={{ color: getScoreColor(result.score) }}
-              >
+              <div style={{ 
+                fontSize: '3.5rem', 
+                fontWeight: '700',
+                color: getScoreColor(result.score),
+                textShadow: `0 0 30px ${getScoreColor(result.score)}40`
+              }}>
                 {result.score}
-                <span className="text-2xl">%</span>
+                <span style={{ fontSize: '1.5rem' }}>%</span>
               </div>
             </div>
-          </div>
+          </GlassPanel>
 
           {/* Issue Summary */}
           {result.summary && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-              <div className="text-gray-400 text-sm mb-3">Issue Summary</div>
-              <div className="grid grid-cols-5 gap-2">
-                <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'rgba(239, 68, 68, 0.2)' }}>
-                  <div className="text-2xl font-bold text-red-400">{result.summary.criticalIssues || 0}</div>
-                  <div className="text-xs text-red-300">Critical</div>
+            <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+              <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '1rem' }}>Issue Summary</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '0.75rem', 
+                  borderRadius: '12px', 
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)'
+                }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fca5a5' }}>{result.summary.criticalIssues || 0}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#fca5a5', opacity: 0.8 }}>Critical</div>
                 </div>
-                <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'rgba(245, 158, 11, 0.2)' }}>
-                  <div className="text-2xl font-bold text-amber-400">{result.summary.highIssues || 0}</div>
-                  <div className="text-xs text-amber-300">High</div>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '0.75rem', 
+                  borderRadius: '12px', 
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.2)'
+                }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fbbf24' }}>{result.summary.highIssues || 0}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#fbbf24', opacity: 0.8 }}>High</div>
                 </div>
-                <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'rgba(234, 179, 8, 0.2)' }}>
-                  <div className="text-2xl font-bold text-yellow-400">{result.summary.mediumIssues || 0}</div>
-                  <div className="text-xs text-yellow-300">Medium</div>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '0.75rem', 
+                  borderRadius: '12px', 
+                  background: 'rgba(234, 179, 8, 0.15)',
+                  border: '1px solid rgba(234, 179, 8, 0.2)'
+                }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#facc15' }}>{result.summary.mediumIssues || 0}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#facc15', opacity: 0.8 }}>Medium</div>
                 </div>
-                <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'rgba(34, 197, 94, 0.2)' }}>
-                  <div className="text-2xl font-bold text-green-400">{result.summary.lowIssues || 0}</div>
-                  <div className="text-xs text-green-300">Low</div>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '0.75rem', 
+                  borderRadius: '12px', 
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#86efac' }}>{result.summary.lowIssues || 0}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#86efac', opacity: 0.8 }}>Low</div>
                 </div>
-                <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)' }}>
-                  <div className="text-2xl font-bold text-blue-400">{result.summary.informational || 0}</div>
-                  <div className="text-xs text-blue-300">Info</div>
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '0.75rem', 
+                  borderRadius: '12px', 
+                  background: 'rgba(59, 130, 246, 0.15)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)'
+                }}>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#93c5fd' }}>{result.summary.informational || 0}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#93c5fd', opacity: 0.8 }}>Info</div>
                 </div>
               </div>
-            </div>
+            </GlassPanel>
           )}
 
           {/* Recommendations */}
           {result.recommendations && result.recommendations.length > 0 && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-              <div className="text-gray-400 text-sm mb-3">Recommendations</div>
-              <ul className="space-y-2">
+            <GlassPanel variant="surface" hover={false} style={{ padding: '1.25rem' }}>
+              <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '1rem' }}>Recommendations</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {result.recommendations.map((rec, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
-                    <span className="text-amber-400">•</span>
+                  <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.9rem', color: '#d4d4d4' }}>
+                    <span style={{ color: '#fbbf24' }}>•</span>
                     {rec}
                   </li>
                 ))}
               </ul>
-            </div>
+            </GlassPanel>
           )}
 
           {/* Full Report */}
           {result.report && (
-            <details className="rounded-xl p-4" style={{ backgroundColor: '#252542' }}>
-              <summary className="text-gray-400 text-sm cursor-pointer">
+            <details style={{ 
+              borderRadius: '16px', 
+              overflow: 'hidden',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <summary style={{ 
+                padding: '1rem 1.25rem', 
+                color: '#a3a3a3', 
+                fontSize: '0.9rem', 
+                cursor: 'pointer',
+                background: 'rgba(255, 255, 255, 0.03)'
+              }}>
                 View Full Report
               </summary>
-              <pre className="mt-3 p-3 rounded-lg text-xs overflow-auto max-h-64 text-gray-300 whitespace-pre-wrap"
-                   style={{ backgroundColor: '#1a1a2e' }}>
+              <pre style={{
+                margin: 0,
+                padding: '1rem 1.25rem',
+                fontSize: '0.8rem',
+                overflow: 'auto',
+                maxHeight: '300px',
+                color: '#d4d4d4',
+                whiteSpace: 'pre-wrap',
+                background: 'rgba(0, 0, 0, 0.2)'
+              }}>
                 {result.report}
               </pre>
             </details>
@@ -298,4 +412,3 @@ contract MyContract {
     </div>
   );
 }
-

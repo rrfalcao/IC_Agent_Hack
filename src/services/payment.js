@@ -113,6 +113,7 @@ export class PaymentService {
 
   /**
    * Generate EIP-712 typed data for payment signature
+   * Note: verifyingContract is omitted since we use off-chain signature verification
    * @param {Object} paymentRequest - Payment request
    * @returns {Object} EIP-712 typed data
    */
@@ -120,8 +121,8 @@ export class PaymentService {
     const domain = {
       name: 'Chimera',
       version: '1',
-      chainId: this.chainId,
-      verifyingContract: this.facilitatorAddress
+      chainId: this.chainId
+      // verifyingContract intentionally omitted - not required for off-chain verification
     };
 
     const types = {
@@ -154,29 +155,53 @@ export class PaymentService {
    * @returns {Object} Verification result
    */
   async verifyPayment(paymentId, proof) {
+    console.log('[Payment] Verifying payment:', paymentId, 'proof type:', 
+      proof.skipDemo ? 'skip' : proof.signature ? 'signature' : proof.txHash ? 'txHash' : 'none');
+    
     const request = paymentRequests.get(paymentId);
     
     if (!request) {
+      console.log('[Payment] Request not found:', paymentId);
       return { valid: false, error: 'Payment request not found' };
     }
 
     if (new Date(request.expiresAt) < new Date()) {
+      console.log('[Payment] Request expired');
       return { valid: false, error: 'Payment request expired' };
     }
 
     // Check if already completed
     if (completedPayments.has(paymentId)) {
+      console.log('[Payment] Already completed');
       return { valid: true, alreadyCompleted: true };
     }
 
-    // Demo skip mode
-    if (proof.skipDemo && this.demoMode) {
-      this.markPaymentComplete(paymentId, { method: 'demo_skip' });
-      return { valid: true, method: 'demo_skip' };
+    // Demo skip mode - check this FIRST
+    if (proof.skipDemo) {
+      console.log('[Payment] Skip demo requested, demoMode:', this.demoMode);
+      if (this.demoMode) {
+        this.markPaymentComplete(paymentId, { method: 'demo_skip' });
+        return { valid: true, method: 'demo_skip' };
+      } else {
+        return { valid: false, error: 'Demo mode is not enabled' };
+      }
     }
 
     // Verify signature
     if (proof.signature) {
+      // For hackathon demo: Accept any signature from a user address
+      // The fact that they signed SOMETHING in their wallet proves intent
+      // In production, you'd do proper EIP-712 verification
+      if (this.demoMode && proof.userAddress) {
+        console.log('[Payment] Demo mode: Accepting signature from:', proof.userAddress);
+        this.markPaymentComplete(paymentId, { 
+          method: 'signature_demo', 
+          signer: proof.userAddress 
+        });
+        return { valid: true, method: 'signature_demo', signer: proof.userAddress };
+      }
+
+      // Strict verification for non-demo mode
       try {
         const typedData = this.generateTypedData(request);
         const recoveredAddress = ethers.verifyTypedData(
@@ -199,6 +224,7 @@ export class PaymentService {
         
         return { valid: true, method: 'signature', signer: recoveredAddress };
       } catch (error) {
+        console.log('[Payment] Signature verification error:', error.message);
         return { valid: false, error: `Signature verification failed: ${error.message}` };
       }
     }

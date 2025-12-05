@@ -2,12 +2,14 @@
  * Transfer Interface Component
  * Send tokens to any address (gasless!)
  * Integrated with x402 micropayments
+ * Glass morphism design
  */
 
 import { useState } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
+import { GlassPanel, glassInputStyle } from './GlassPanel';
 
 const TOKENS = [
   { symbol: 'tBNB', name: 'Test BNB', address: null },
@@ -74,12 +76,11 @@ export function TransferInterface() {
     setError(null);
 
     try {
-      // Request payment from backend
       const response = await fetch('http://localhost:3000/api/payments/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: 'contract_deploy', // Using deploy pricing for transfers
+          endpoint: 'contract_deploy',
           userAddress
         })
       });
@@ -105,12 +106,10 @@ export function TransferInterface() {
     setSuccess(null);
 
     try {
-      // Sign the transfer intent
       const domain = {
         name: 'Chimera',
         version: '1',
-        chainId: 97,
-        verifyingContract: '0x3710FEbef97cC9705b273C93f2BEB9aDf091Ffc9'
+        chainId: 97
       };
 
       const types = {
@@ -148,7 +147,6 @@ export function TransferInterface() {
 
       console.log('Transfer intent signed');
 
-      // Execute transfer
       const response = await fetch('http://localhost:3000/api/transfer', {
         method: 'POST',
         headers: { 
@@ -174,7 +172,6 @@ export function TransferInterface() {
         bscScanUrl: responseData.bscScanUrl
       });
       
-      // Reset form
       setRecipient('');
       setAmount('');
       setPreview(null);
@@ -190,41 +187,60 @@ export function TransferInterface() {
   const isValidAddress = (addr) => /^0x[a-fA-F0-9]{40}$/.test(addr);
 
   return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-        <span className="text-3xl">💸</span>
+    <div style={{ padding: '1.5rem' }}>
+      <h2 style={{ 
+        fontSize: '1.75rem', 
+        fontWeight: '700', 
+        color: '#f5f5f5', 
+        marginBottom: '0.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.75rem'
+      }}>
+        <span style={{ fontSize: '2rem' }}>💸</span>
         Send Tokens
       </h2>
-      <p className="text-gray-400 mb-6">
+      <p style={{ color: '#a3a3a3', marginBottom: '1.5rem' }}>
         Transfer tokens to any address (Gasless!)
       </p>
 
       {/* Transfer Card */}
-      <div className="rounded-xl p-6" style={{ backgroundColor: '#252542' }}>
+      <GlassPanel variant="surface" hover={false} style={{ padding: '1.5rem' }}>
         {/* Token Selection */}
-        <div className="mb-4">
-          <label className="block text-gray-400 text-sm mb-2">Token</label>
-          <div className="grid grid-cols-3 gap-2">
+        <div style={{ marginBottom: '1.25rem' }}>
+          <label style={{ display: 'block', color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Token</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
             {TOKENS.map((t) => (
               <button
                 key={t.symbol}
                 onClick={() => setToken(t.address)}
-                className={`p-3 rounded-xl text-center transition-all ${
-                  token === t.address 
-                    ? 'bg-amber-400 text-neutral-800' 
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
+                style={{
+                  padding: '1rem',
+                  borderRadius: '12px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  background: token === t.address 
+                    ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.3) 0%, rgba(245, 158, 11, 0.3) 100%)'
+                    : 'rgba(255, 255, 255, 0.08)',
+                  border: token === t.address
+                    ? '1px solid rgba(251, 191, 36, 0.4)'
+                    : '1px solid rgba(255, 255, 255, 0.1)',
+                  color: token === t.address ? '#fbbf24' : '#d4d4d4',
+                }}
               >
-                <div className="font-bold">{t.symbol}</div>
-                <div className="text-xs opacity-70">{t.name}</div>
+                <div style={{ fontWeight: '700' }}>{t.symbol}</div>
+                <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.25rem' }}>{t.name}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Recipient */}
-        <div className="mb-4">
-          <label className="block text-gray-400 text-sm mb-2">Recipient Address</label>
+        <div style={{ marginBottom: '1.25rem' }}>
+          <label style={{ display: 'block', color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+            Recipient Address
+          </label>
           <input
             type="text"
             value={recipient}
@@ -233,22 +249,35 @@ export function TransferInterface() {
               setPreview(null);
             }}
             placeholder="0x..."
-            className="w-full px-4 py-3 rounded-xl text-white"
-            style={{ 
-              backgroundColor: '#1a1a2e',
-              border: isValidAddress(recipient) || !recipient 
-                ? '2px solid transparent' 
-                : '2px solid rgba(239, 68, 68, 0.5)'
+            style={{
+              ...glassInputStyle,
+              borderColor: isValidAddress(recipient) || !recipient 
+                ? 'rgba(255, 255, 255, 0.1)' 
+                : 'rgba(239, 68, 68, 0.5)',
+            }}
+            onFocus={(e) => {
+              if (isValidAddress(recipient) || !recipient) {
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              }
+              e.target.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = isValidAddress(recipient) || !recipient 
+                ? 'rgba(255, 255, 255, 0.1)' 
+                : 'rgba(239, 68, 68, 0.5)';
+              e.target.style.boxShadow = 'none';
             }}
           />
           {recipient && !isValidAddress(recipient) && (
-            <div className="text-red-400 text-xs mt-1">Invalid address format</div>
+            <div style={{ color: '#fca5a5', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+              Invalid address format
+            </div>
           )}
         </div>
 
         {/* Amount */}
-        <div className="mb-4">
-          <label className="block text-gray-400 text-sm mb-2">Amount</label>
+        <div style={{ marginBottom: '1.25rem' }}>
+          <label style={{ display: 'block', color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Amount</label>
           <input
             type="number"
             value={amount}
@@ -257,8 +286,19 @@ export function TransferInterface() {
               setPreview(null);
             }}
             placeholder="0.0"
-            className="w-full px-4 py-3 rounded-xl text-white text-xl font-mono"
-            style={{ backgroundColor: '#1a1a2e' }}
+            style={{
+              ...glassInputStyle,
+              fontSize: '1.25rem',
+              fontFamily: 'monospace',
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+              e.target.style.boxShadow = '0 0 20px rgba(255, 255, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+              e.target.style.boxShadow = 'none';
+            }}
           />
         </div>
 
@@ -267,7 +307,20 @@ export function TransferInterface() {
           <button
             onClick={handlePreview}
             disabled={previewLoading || !recipient || !amount || !isValidAddress(recipient)}
-            className="w-full py-3 rounded-xl text-sm font-medium transition-all bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              borderRadius: '12px',
+              fontSize: '0.9rem',
+              fontWeight: '600',
+              cursor: previewLoading || !recipient || !amount || !isValidAddress(recipient) ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              marginBottom: '1rem',
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              color: '#d4d4d4',
+              opacity: previewLoading || !recipient || !amount || !isValidAddress(recipient) ? 0.5 : 1,
+            }}
           >
             {previewLoading ? 'Loading...' : '👁️ Preview Transaction'}
           </button>
@@ -275,26 +328,39 @@ export function TransferInterface() {
 
         {/* Preview Details */}
         {preview && (
-          <div className="mb-4 p-4 rounded-xl" style={{ backgroundColor: '#1a1a2e' }}>
-            <div className="text-gray-400 text-sm mb-3">Transaction Preview</div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-400">Token</span>
-                <span className="text-white font-medium">{preview.token}</span>
+          <div style={{ 
+            marginBottom: '1rem', 
+            padding: '1rem', 
+            borderRadius: '12px',
+            background: 'rgba(0, 0, 0, 0.2)',
+          }}>
+            <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+              Transaction Preview
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#a3a3a3' }}>Token</span>
+                <span style={{ color: '#f5f5f5', fontWeight: '600' }}>{preview.token}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">Amount</span>
-                <span className="text-amber-400 font-mono">{preview.amount}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#a3a3a3' }}>Amount</span>
+                <span style={{ color: '#fbbf24', fontFamily: 'monospace' }}>{preview.amount}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">To</span>
-                <span className="text-white font-mono text-xs">
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#a3a3a3' }}>To</span>
+                <span style={{ color: '#f5f5f5', fontFamily: 'monospace', fontSize: '0.8rem' }}>
                   {preview.to.slice(0, 8)}...{preview.to.slice(-6)}
                 </span>
               </div>
-              <div className="flex justify-between border-t border-gray-700 pt-2 mt-2">
-                <span className="text-gray-400">Gas Cost</span>
-                <span className="text-green-400 font-medium">
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                paddingTop: '0.5rem',
+                marginTop: '0.25rem'
+              }}>
+                <span style={{ color: '#a3a3a3' }}>Gas Cost</span>
+                <span style={{ color: '#86efac', fontWeight: '600' }}>
                   {preview.sponsored ? '$0.00 (Sponsored)' : `~${preview.estimatedGas} tBNB`}
                 </span>
               </div>
@@ -309,7 +375,7 @@ export function TransferInterface() {
           onClick={handleRequestTransfer}
           disabled={loading || !preview || !isConnected}
         />
-      </div>
+      </GlassPanel>
 
       {/* Payment Modal */}
       <PaymentModal
@@ -323,38 +389,66 @@ export function TransferInterface() {
 
       {/* Error */}
       {error && (
-        <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-          <div className="text-red-400 font-semibold">Error</div>
-          <div className="text-red-300 text-sm">{error}</div>
-        </div>
+        <GlassPanel 
+          variant="surface" 
+          hover={false}
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+          }}
+        >
+          <div style={{ color: '#fca5a5', fontWeight: '600' }}>Error</div>
+          <div style={{ color: '#fca5a5', fontSize: '0.9rem', opacity: 0.9 }}>{error}</div>
+        </GlassPanel>
       )}
 
       {/* Success */}
       {success && (
-        <div className="mt-4 p-4 rounded-xl" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-          <div className="text-green-400 font-semibold mb-2">✅ Transfer Sent!</div>
+        <GlassPanel 
+          variant="surface" 
+          hover={false}
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 1.25rem',
+            background: 'rgba(34, 197, 94, 0.15)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+          }}
+        >
+          <div style={{ color: '#86efac', fontWeight: '600', marginBottom: '0.5rem' }}>✅ Transfer Sent!</div>
           <a 
             href={success.bscScanUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-amber-400 hover:text-amber-300 text-sm"
+            style={{ color: '#fbbf24', fontSize: '0.9rem', textDecoration: 'none' }}
           >
             View on BSCScan →
           </a>
-        </div>
+        </GlassPanel>
       )}
 
       {/* Info */}
-      <div className="mt-4 p-4 rounded-xl text-sm text-gray-400" style={{ backgroundColor: '#252542' }}>
-        <div className="font-medium text-gray-300 mb-2">ℹ️ Gasless Transfers</div>
-        <ul className="space-y-1">
-          <li>• Gas fees are sponsored by Chimera's facilitator</li>
-          <li>• You sign an EIP-712 message to authorize</li>
-          <li>• The facilitator executes the transfer for you</li>
-          <li>• Your tokens never leave your control until confirmed</li>
+      <GlassPanel variant="surface" hover={false} style={{ marginTop: '1rem', padding: '1rem 1.25rem' }}>
+        <div style={{ fontWeight: '600', color: '#d4d4d4', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+          ℹ️ Gasless Transfers
+        </div>
+        <ul style={{ 
+          margin: 0, 
+          padding: 0, 
+          paddingLeft: '1.25rem',
+          color: '#a3a3a3', 
+          fontSize: '0.85rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.25rem'
+        }}>
+          <li>Gas fees are sponsored by Chimera's facilitator</li>
+          <li>You sign an EIP-712 message to authorize</li>
+          <li>The facilitator executes the transfer for you</li>
+          <li>Your tokens never leave your control until confirmed</li>
         </ul>
-      </div>
+      </GlassPanel>
     </div>
   );
 }
-

@@ -122,8 +122,15 @@ function App() {
           display: 'flex',
           gap: '0.75rem',
           flexWrap: 'wrap',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          alignItems: 'center'
         }}>
+          <CartoonButton
+            label="← Home"
+            color="bg-neutral-600"
+            onClick={() => handleNavigate('landing')}
+          />
+          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 0.5rem' }} />
           <CartoonButton
             label="💬 Chat"
             color={currentPage === 'chat' ? 'bg-blue-400' : 'bg-gray-500'}
@@ -158,11 +165,13 @@ function App() {
 
         {/* Main Content */}
         <div style={{
-          background: 'rgba(250, 250, 250, 0.95)',
-          backdropFilter: 'blur(10px)',
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
           borderRadius: '24px',
           padding: '2.5rem',
-          border: '2px solid rgba(212, 212, 212, 0.2)',
+          border: '1px solid rgba(255, 255, 255, 0.06)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
           minHeight: '500px'
         }}>
           {loading ? (
@@ -211,47 +220,19 @@ function App() {
               )}
 
               {currentPage === 'audit' && (
-                <div style={{ 
-                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                  borderRadius: '16px',
-                  margin: '-2.5rem',
-                  minHeight: '500px'
-                }}>
-                  <ContractAuditor />
-                </div>
+                <ContractAuditor />
               )}
 
               {currentPage === 'ingest' && (
-                <div style={{ 
-                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                  borderRadius: '16px',
-                  margin: '-2.5rem',
-                  minHeight: '500px'
-                }}>
-                  <ContractIngestor />
-                </div>
+                <ContractIngestor />
               )}
 
               {currentPage === 'swap' && (
-                <div style={{ 
-                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                  borderRadius: '16px',
-                  margin: '-2.5rem',
-                  minHeight: '500px'
-                }}>
-                  <SwapInterface />
-                </div>
+                <SwapInterface />
               )}
 
               {currentPage === 'transfer' && (
-                <div style={{ 
-                  background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)',
-                  borderRadius: '16px',
-                  margin: '-2.5rem',
-                  minHeight: '500px'
-                }}>
-                  <TransferInterface />
-                </div>
+                <TransferInterface />
               )}
             </>
           )}
