@@ -11,6 +11,7 @@ import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
 import { TransactionPreview } from './TransactionPreview';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
+import { useAgentBrain } from '../hooks/useAgentBrain';
 
 // Flow steps
 const STEPS = {
@@ -27,6 +28,7 @@ const STEPS = {
 export function ContractGenerator() {
   const { address, isConnected } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
+  const brain = useAgentBrain();
   
   // Flow state
   const [step, setStep] = useState(STEPS.INPUT);
@@ -34,7 +36,7 @@ export function ContractGenerator() {
   const [error, setError] = useState(null);
   
   // Payment state
-  const [paymentRequest, setPaymentRequest] = useState(null);
+  const [paymentRequired, setPaymentRequired] = useState(null);
   
   // Generation state
   const [generationResult, setGenerationResult] = useState(null);
@@ -45,7 +47,7 @@ export function ContractGenerator() {
   
   const [showCode, setShowCode] = useState(false);
 
-  // Step 1: Request payment for generation
+  // Step 1: Request payment for generation (triggers 402)
   const handleStartGeneration = async () => {
     if (!prompt.trim()) {
       setError('Please enter a contract description');
@@ -60,73 +62,107 @@ export function ContractGenerator() {
     setError(null);
 
     try {
-      // Request payment from backend
-      const response = await fetch('http://localhost:3000/api/payments/request', {
+      // Call the endpoint with user's wallet address for CHIM payment
+      const response = await fetch('http://localhost:3000/api/contract/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          endpoint: 'contract_generation',
-          userAddress: address
+          prompt,
+          autoAudit: true,
+          autoDeploy: false,
+          userAddress: address // Pass wallet address for CHIM credits
         })
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setPaymentRequest(data.payment);
+      // 402 means insufficient CHIM credits
+      if (response.status === 402) {
+        const paymentData = await response.json();
+        // Show user they need to buy CHIM credits
+        setError(`Insufficient CHIM credits. Required: ${paymentData.pricing?.amount || '10 CHIM'}. Please buy credits first.`);
+        setPaymentRequired(paymentData);
         setStep(STEPS.PAYMENT);
+      } else if (response.ok) {
+        // If no payment required (demo mode), proceed directly
+        const data = await response.json();
+        if (data.success) {
+          setGenerationResult(data);
+          setAuditResult({
+            score: data.auditScore || 100,
+            passed: (data.auditScore || 100) >= 80,
+            report: data.auditReport || 'No issues found',
+            summary: { criticalIssues: 0, highIssues: 0, mediumIssues: 0, lowIssues: 0, informational: 0 }
+          });
+          setStep(STEPS.PREVIEW);
+        } else {
+          throw new Error(data.message || 'Generation failed');
+        }
       } else {
-        throw new Error(data.error || 'Failed to create payment request');
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Request failed');
       }
     } catch (err) {
-      console.error('Payment request error:', err);
+      console.error('Generation request error:', err);
       setError(err.message);
     }
   };
 
-  // Step 2: After payment is complete, generate contract
-  const handlePaymentComplete = async (paymentId, signature) => {
+  // Step 2: After payment is complete, generate contract with Brain visualization
+  const handlePaymentComplete = async (paymentData) => {
     setStep(STEPS.GENERATING);
     
     try {
-      // Generate contract (without auto-deploy)
-      const response = await fetch('http://localhost:3000/api/contract/create', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `x402 paymentId=${paymentId}${signature ? ` signature=${signature}` : ''}`
-        },
-        body: JSON.stringify({
-          prompt,
-          autoAudit: true,
-          autoDeploy: false // Don't auto-deploy - we need to preview first
-        })
+      // Use the global brain for visualization
+      const result = await brain.runGenerate(async () => {
+        // Build headers
+        const headers = { 'Content-Type': 'application/json' };
+        
+        // Add payment header or demo skip
+        if (paymentData?.paymentHeader) {
+          headers['X-PAYMENT'] = paymentData.paymentHeader;
+        } else {
+          headers['X-Demo-Skip'] = 'true';
+        }
+
+        // Generate contract (without auto-deploy)
+        const response = await fetch('http://localhost:3000/api/contract/create', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            prompt,
+            autoAudit: true,
+            autoDeploy: false, // Don't auto-deploy - we need to preview first
+            userAddress: address // Pass wallet address for CHIM credits
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.success) {
+          throw new Error(data.message || 'Generation failed');
+        }
+        
+        return data;
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setGenerationResult(data);
-        setAuditResult({
-          score: data.auditScore || 100,
-          passed: (data.auditScore || 100) >= 80,
-          report: data.auditReport || 'No issues found',
-          summary: {
-            criticalIssues: 0,
-            highIssues: 0,
-            mediumIssues: 0,
-            lowIssues: 0,
-            informational: 0
-          }
-        });
-        setStep(STEPS.PREVIEW);
-      } else {
-        throw new Error(data.message || 'Generation failed');
-      }
+      setGenerationResult(result);
+      setAuditResult({
+        score: result.auditScore || 100,
+        passed: (result.auditScore || 100) >= 80,
+        report: result.auditReport || 'No issues found',
+        summary: {
+          criticalIssues: 0,
+          highIssues: 0,
+          mediumIssues: 0,
+          lowIssues: 0,
+          informational: 0
+        }
+      });
+      setStep(STEPS.PREVIEW);
     } catch (err) {
       console.error('Generation error:', err);
       setError(err.message);
@@ -134,7 +170,7 @@ export function ContractGenerator() {
     }
   };
 
-  // Step 3: Sign and deploy
+  // Step 3: Sign and deploy with Brain visualization
   const handleSignAndDeploy = async () => {
     if (!generationResult?.compiled) {
       setError('No compiled contract to deploy');
@@ -144,75 +180,79 @@ export function ContractGenerator() {
     setStep(STEPS.SIGNING);
 
     try {
-      // Create EIP-712 typed data for the deployment intent
-      // Note: verifyingContract omitted for off-chain verification
-      const domain = {
-        name: 'Chimera',
-        version: '1',
-        chainId: 97
-      };
+      // Use the global brain for deployment visualization
+      const deployData = await brain.runDeploy(async () => {
+        // Create EIP-712 typed data for the deployment intent
+        const domain = {
+          name: 'Chimera',
+          version: '1',
+          chainId: 97
+        };
 
-      const types = {
-        Intent: [
-          { name: 'type', type: 'string' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'dataHash', type: 'bytes32' }
-        ]
-      };
+        const types = {
+          Intent: [
+            { name: 'type', type: 'string' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+            { name: 'dataHash', type: 'bytes32' }
+          ]
+        };
 
-      const nonce = BigInt(Date.now());
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-      
-      // Create a simple hash of the intent data
-      const dataString = JSON.stringify({
-        bytecode: generationResult.compiled.bytecode,
-        abi: generationResult.compiled.abi
-      });
-      const encoder = new TextEncoder();
-      const data = encoder.encode(dataString);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const dataHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-
-      const message = {
-        type: 'deploy_contract',
-        nonce,
-        deadline,
-        dataHash
-      };
-
-      // Sign the typed data
-      const signature = await signTypedDataAsync({
-        domain,
-        types,
-        primaryType: 'Intent',
-        message
-      });
-
-      console.log('Intent signed:', signature.slice(0, 20) + '...');
-      setStep(STEPS.DEPLOYING);
-
-      // Deploy with signature
-      const deployResponse = await fetch('http://localhost:3000/api/contract/deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        const nonce = BigInt(Date.now());
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+        
+        // Create a simple hash of the intent data
+        const dataString = JSON.stringify({
           bytecode: generationResult.compiled.bytecode,
-          abi: generationResult.compiled.abi,
-          constructorArgs: [],
-          signature
-        })
+          abi: generationResult.compiled.abi
+        });
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataString);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const dataHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        const message = {
+          type: 'deploy_contract',
+          nonce,
+          deadline,
+          dataHash
+        };
+
+        // Sign the typed data
+        const signature = await signTypedDataAsync({
+          domain,
+          types,
+          primaryType: 'Intent',
+          message
+        });
+
+        console.log('Intent signed:', signature.slice(0, 20) + '...');
+        setStep(STEPS.DEPLOYING);
+
+        // Deploy with signature
+        const deployResponse = await fetch('http://localhost:3000/api/contract/deploy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bytecode: generationResult.compiled.bytecode,
+            abi: generationResult.compiled.abi,
+            constructorArgs: [],
+            signature
+          })
+        });
+
+        const responseData = await deployResponse.json();
+
+        if (!responseData.success) {
+          throw new Error(responseData.message || 'Deployment failed');
+        }
+        
+        return responseData;
       });
 
-      const deployData = await deployResponse.json();
-
-      if (deployData.success) {
-        setDeployResult(deployData);
-        setStep(STEPS.SUCCESS);
-      } else {
-        throw new Error(deployData.message || 'Deployment failed');
-      }
+      setDeployResult(deployData);
+      setStep(STEPS.SUCCESS);
     } catch (err) {
       console.error('Deploy error:', err);
       if (err.message?.includes('User rejected')) {
@@ -230,7 +270,7 @@ export function ContractGenerator() {
     setStep(STEPS.INPUT);
     setPrompt('');
     setError(null);
-    setPaymentRequest(null);
+    setPaymentRequired(null);
     setGenerationResult(null);
     setAuditResult(null);
     setDeployResult(null);
@@ -336,9 +376,9 @@ export function ContractGenerator() {
       {/* Step 2: Payment Modal */}
       <PaymentModal
         isOpen={step === STEPS.PAYMENT}
-        paymentRequest={paymentRequest}
+        paymentRequired={paymentRequired}
         onPaymentComplete={handlePaymentComplete}
-        onSkip={(paymentId) => handlePaymentComplete(paymentId, null)}
+        onSkip={() => handlePaymentComplete({ method: 'demo_skip' })}
         onCancel={() => setStep(STEPS.INPUT)}
         demoMode={true}
       />

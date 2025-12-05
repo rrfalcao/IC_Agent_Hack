@@ -1,126 +1,84 @@
 /**
- * Payment Modal
- * x402 payment flow for premium features
- * Themed for Chimera with skip option for demo
- * Glass morphism design
+ * Payment Modal - CHIM Credits
+ * Shows when user doesn't have enough CHIM credits for a service
+ * Provides options to buy credits or skip (demo mode)
  */
 
 import { useState } from 'react';
-import { useSignTypedData, useAccount } from 'wagmi';
+import { useAccount } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { GlassPanel } from './GlassPanel';
 
-// Generate EIP-712 typed data for payment
-function generateTypedData(paymentRequest) {
-  const domain = {
-    name: 'Chimera',
-    version: '1',
-    chainId: paymentRequest.chainId || 97
-  };
-
-  const types = {
-    Payment: [
-      { name: 'paymentId', type: 'string' },
-      { name: 'amount', type: 'string' },
-      { name: 'token', type: 'string' },
-      { name: 'recipient', type: 'address' },
-      { name: 'endpoint', type: 'string' },
-      { name: 'deadline', type: 'uint256' }
-    ]
-  };
-
-  const deadline = Math.floor(new Date(paymentRequest.expiresAt).getTime() / 1000);
-
-  const message = {
-    paymentId: paymentRequest.id,
-    amount: paymentRequest.amount,
-    token: paymentRequest.token,
-    recipient: paymentRequest.recipient,
-    endpoint: paymentRequest.endpoint,
-    deadline: BigInt(deadline)
-  };
-
-  return { domain, types, message };
-}
+// Agent identity configuration (from ERC-8004 registration)
+const AGENT_CONFIG = {
+  agentId: '1581',
+  explorerUrl: 'https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=1581',
+  registryNetwork: 'Base Sepolia'
+};
 
 export function PaymentModal({ 
-  paymentRequest, 
+  paymentRequired, // 402 response from server
   onPaymentComplete, 
   onSkip,
   onCancel,
   isOpen,
-  demoMode = true
+  demoMode = true,
+  onNavigateToCredits
 }) {
-  const [isPaying, setIsPaying] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
-  const { signTypedDataAsync } = useSignTypedData();
+  const [error, setError] = useState(null);
+  
   const { address } = useAccount();
 
-  if (!isOpen || !paymentRequest) return null;
+  if (!isOpen || !paymentRequired) return null;
 
-  const handlePay = async () => {
-    setIsPaying(true);
-    try {
-      const typedData = generateTypedData(paymentRequest);
-      
-      console.log('Signing payment with typed data:', typedData);
-      
-      const signature = await signTypedDataAsync({
-        domain: typedData.domain,
-        types: typedData.types,
-        primaryType: 'Payment',
-        message: typedData.message
-      });
+  // Extract CHIM pricing info
+  const pricing = paymentRequired?.pricing || {};
+  const required = pricing.amount || paymentRequired?.required || '10 CHIM';
+  const currentBalance = paymentRequired?.balance || '0';
+  const serviceName = pricing.service || 'Service';
+  const serviceDescription = pricing.description || paymentRequired?.message || 'This service requires CHIM credits';
 
-      console.log('Payment signed:', signature.slice(0, 20) + '...');
-
-      const response = await fetch('http://localhost:3000/api/payments/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paymentId: paymentRequest.id,
-          signature,
-          userAddress: address
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        onPaymentComplete(paymentRequest.id, signature);
-      } else {
-        throw new Error(result.error || 'Payment verification failed');
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      if (!error.message?.includes('User rejected') && !error.message?.includes('user rejected')) {
-        alert('Payment failed: ' + error.message);
-      }
-    } finally {
-      setIsPaying(false);
+  /**
+   * Handle navigation to credits page
+   */
+  const handleBuyCredits = () => {
+    // Close modal and navigate to credits page
+    onCancel?.();
+    if (onNavigateToCredits) {
+      onNavigateToCredits();
+    } else {
+      // Fallback: try to navigate via window location
+      window.location.hash = '#credits';
     }
   };
 
+  /**
+   * Handle demo mode skip
+   */
   const handleSkip = async () => {
     setIsSkipping(true);
+    setError(null);
+    
     try {
-      const response = await fetch('http://localhost:3000/api/payments/skip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId: paymentRequest.id })
+      // Create demo payment header
+      const demoPayload = {
+        demoSkip: true,
+        timestamp: Date.now(),
+        payer: address || 'demo'
+      };
+      
+      onSkip?.();
+      onPaymentComplete?.({
+        paymentHeader: null,
+        signedPayload: demoPayload,
+        payer: address || 'demo',
+        method: 'demo_skip'
       });
-
-      const result = await response.json();
-
-      if (result.success) {
-        onSkip?.(paymentRequest.id);
-        onPaymentComplete?.(paymentRequest.id, null);
-      } else {
-        throw new Error(result.error || 'Skip failed');
-      }
-    } catch (error) {
-      console.error('Skip error:', error);
-      alert('Failed to skip: ' + error.message);
+      
+    } catch (err) {
+      console.error('[CHIM] Skip error:', err);
+      setError(err.message || 'Failed to skip');
     } finally {
       setIsSkipping(false);
     }
@@ -144,7 +102,7 @@ export function PaymentModal({
         variant="modal"
         hover={false}
         style={{
-          maxWidth: '420px',
+          maxWidth: '500px',
           width: '100%',
           overflow: 'hidden',
         }}
@@ -152,148 +110,156 @@ export function PaymentModal({
         {/* Header */}
         <div style={{ 
           padding: '1.5rem',
-          textAlign: 'center',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
           background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(245, 158, 11, 0.08) 100%)',
           borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
         }}>
-          <div style={{ fontSize: '3rem', marginBottom: '0.75rem' }}>💰</div>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#f5f5f5', margin: 0 }}>
-            Payment Required
-          </h2>
-          <p style={{ color: '#a3a3a3', fontSize: '0.9rem', marginTop: '0.5rem', marginBottom: 0 }}>
-            {paymentRequest.description || 'Premium Feature'}
-          </p>
+          <div style={{ 
+            fontSize: '3rem',
+            filter: 'drop-shadow(0 0 20px rgba(251, 191, 36, 0.4))'
+          }}>
+            🪙
+          </div>
+          <div>
+            <h2 style={{ fontSize: '1.3rem', fontWeight: '700', color: '#fbbf24', margin: 0 }}>
+              CHIM Credits Required
+            </h2>
+            <p style={{ color: '#a3a3a3', fontSize: '0.9rem', margin: '0.25rem 0 0 0' }}>
+              Insufficient credits for {serviceName}
+            </p>
+          </div>
         </div>
 
-        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* Amount Display */}
+        {/* Content */}
+        <div style={{ padding: '1.5rem' }}>
+          {/* Credit Info Box */}
           <GlassPanel 
             variant="surface" 
             hover={false}
-            style={{ padding: '1.25rem', textAlign: 'center' }}
+            style={{ padding: '1.25rem', marginBottom: '1.5rem' }}
           >
-            <div style={{ color: '#a3a3a3', fontSize: '0.85rem', marginBottom: '0.25rem' }}>Amount</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div>
+                <div style={{ color: '#a3a3a3', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Required
+                </div>
+                <div style={{ 
+                  fontSize: '1.5rem', 
+                  fontWeight: '700', 
+                  color: '#fbbf24',
+                  textShadow: '0 0 20px rgba(251, 191, 36, 0.3)'
+                }}>
+                  {required}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: '#a3a3a3', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Your Balance
+                </div>
+                <div style={{ 
+                  fontSize: '1.5rem', 
+                  fontWeight: '700', 
+                  color: '#ef4444',
+                }}>
+                  {currentBalance} CHIM
+                </div>
+              </div>
+            </div>
+            
             <div style={{ 
-              fontSize: '2rem', 
-              fontWeight: '700', 
-              color: '#fbbf24',
-              textShadow: '0 0 30px rgba(251, 191, 36, 0.3)'
-            }}>
-              {paymentRequest.amount} {paymentRequest.token}
-            </div>
-            <div style={{ color: '#737373', fontSize: '0.8rem', marginTop: '0.5rem' }}>
-              ~${(parseFloat(paymentRequest.amount || 0) * 300).toFixed(2)} USD
-            </div>
-          </GlassPanel>
-
-          {/* Payment Details */}
-          <GlassPanel 
-            variant="surface" 
-            hover={false}
-            style={{ padding: '1rem 1.25rem', fontSize: '0.9rem' }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#a3a3a3' }}>Network</span>
-                <span style={{ color: '#f5f5f5' }}>BSC Testnet</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#a3a3a3' }}>Recipient</span>
-                <span style={{ color: '#f5f5f5', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                  {paymentRequest.recipient?.slice(0, 8)}...{paymentRequest.recipient?.slice(-6)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#a3a3a3' }}>Expires</span>
-                <span style={{ color: '#fbbf24' }}>
-                  {paymentRequest.expiresAt ? new Date(paymentRequest.expiresAt).toLocaleTimeString() : 'N/A'}
-                </span>
-              </div>
-            </div>
-          </GlassPanel>
-
-          {/* Info Box */}
-          <GlassPanel 
-            variant="surface" 
-            hover={false}
-            style={{ 
-              padding: '1rem 1.25rem', 
+              padding: '0.75rem',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: '8px',
+              color: '#fca5a5',
               fontSize: '0.85rem',
-              background: 'rgba(34, 197, 94, 0.1)',
-              border: '1px solid rgba(34, 197, 94, 0.2)'
-            }}
-          >
-            <div style={{ color: '#86efac', fontWeight: '600', marginBottom: '0.25rem' }}>
-              🔒 Secure Payment
-            </div>
-            <div style={{ color: '#86efac', opacity: 0.9, fontSize: '0.8rem' }}>
-              You'll sign an EIP-712 message to authorize. No tokens are transferred until service is delivered.
+              textAlign: 'center'
+            }}>
+              ⚠️ You need more CHIM credits to use this service
             </div>
           </GlassPanel>
 
-          {/* Demo Mode Banner */}
-          {demoMode && paymentRequest.demoSkipAllowed && (
-            <GlassPanel 
-              variant="surface" 
-              hover={false}
-              style={{ 
-                padding: '1rem 1.25rem', 
-                textAlign: 'center',
-                background: 'rgba(168, 85, 247, 0.1)',
-                border: '1px solid rgba(168, 85, 247, 0.2)'
+          {/* Service Description */}
+          <p style={{ color: '#d4d4d4', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+            {serviceDescription}
+          </p>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <CartoonButton
+              label="🪙 Buy CHIM Credits"
+              color="bg-amber-400"
+              onClick={handleBuyCredits}
+            />
+            
+            {demoMode && (
+              <CartoonButton
+                label={isSkipping ? 'Skipping...' : '⏭️ Skip (Demo Mode)'}
+                color="bg-purple-400"
+                onClick={handleSkip}
+                disabled={isSkipping}
+              />
+            )}
+            
+            <button
+              onClick={onCancel}
+              disabled={isSkipping}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#a3a3a3',
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                padding: '0.75rem',
+                transition: 'color 0.2s ease'
               }}
+              onMouseEnter={(e) => e.target.style.color = '#f5f5f5'}
+              onMouseLeave={(e) => e.target.style.color = '#a3a3a3'}
             >
-              <div style={{ color: '#c4b5fd', fontWeight: '600', fontSize: '0.9rem' }}>
-                ✨ Demo Mode Active
-              </div>
-              <div style={{ color: '#c4b5fd', opacity: 0.9, fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                You can skip payment for testing purposes
-              </div>
-            </GlassPanel>
-          )}
+              Cancel
+            </button>
+          </div>
         </div>
 
-        {/* Actions */}
+        {/* Footer */}
         <div style={{ 
-          padding: '1.5rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+          padding: '1rem 1.5rem', 
+          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
           display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem'
+          justifyContent: 'space-between',
+          alignItems: 'center'
         }}>
-          <CartoonButton
-            label={isPaying ? 'Signing...' : '✍️ Sign & Pay'}
-            color="bg-amber-400"
-            onClick={handlePay}
-            disabled={isPaying || isSkipping}
-          />
-          
-          {demoMode && paymentRequest.demoSkipAllowed && (
-            <CartoonButton
-              label={isSkipping ? 'Skipping...' : '⏭️ Skip (Demo)'}
-              color="bg-purple-400"
-              onClick={handleSkip}
-              disabled={isPaying || isSkipping}
-            />
+          {/* Error Display */}
+          {error && (
+            <div style={{ color: '#fca5a5', fontSize: '0.8rem' }}>
+              ❌ {error}
+            </div>
           )}
           
-          <button
-            onClick={onCancel}
-            disabled={isPaying || isSkipping}
+          {/* Agent Badge */}
+          <a 
+            href={AGENT_CONFIG.explorerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#a3a3a3',
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              padding: '0.5rem',
-              transition: 'color 0.2s ease'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.4rem 0.75rem',
+              background: 'rgba(34, 197, 94, 0.1)',
+              border: '1px solid rgba(34, 197, 94, 0.2)',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              marginLeft: 'auto'
             }}
-            onMouseEnter={(e) => e.target.style.color = '#f5f5f5'}
-            onMouseLeave={(e) => e.target.style.color = '#a3a3a3'}
           >
-            Cancel
-          </button>
+            <span style={{ color: '#4ade80', fontSize: '0.7rem' }}>✓</span>
+            <span style={{ color: '#60a5fa', fontSize: '0.8rem', fontWeight: '600' }}>
+              Agent #{AGENT_CONFIG.agentId}
+            </span>
+          </a>
         </div>
       </GlassPanel>
     </div>

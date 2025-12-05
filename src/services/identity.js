@@ -71,15 +71,39 @@ const IDENTITY_REGISTRY_ABI = [
   }
 ];
 
-// BAS Core (Identity Registry) on BSC Testnet
-const BSC_TESTNET_IDENTITY_REGISTRY = '0x6c2270298b1e6046898a322acB3Cbad6F99f7CBD';
+// AWE ERC-8004 Identity Registry on Base Sepolia (where NFT was minted)
+const BASE_SEPOLIA_IDENTITY_REGISTRY = '0x8004AA63c570c570eBF15376c0dB199918BFe9Fb';
+
+// Base Sepolia chain definition
+const baseSepolia = {
+  id: 84532,
+  name: 'Base Sepolia',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'ETH',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://sepolia.base.org'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'BaseScan Sepolia',
+      url: 'https://sepolia.basescan.org',
+    },
+  },
+};
 
 export class IdentityService {
   constructor() {
-    this.agentId = process.env.AGENT_ID || null;
+    // Agent identity minted on Base Sepolia
+    this.agentId = process.env.AGENT_ID || '1581';
     this.ipfsHash = process.env.AGENT_IPFS_HASH || null;
-    this.registryAddress = BSC_TESTNET_IDENTITY_REGISTRY;
-    this.chainId = 97;
+    this.registryAddress = BASE_SEPOLIA_IDENTITY_REGISTRY;
+    this.identityChainId = 84532; // Base Sepolia for identity
+    this.operationalChainId = 97;  // BSC Testnet for operations
     this.isInitialized = false;
     
     // Initialize viem clients
@@ -230,35 +254,57 @@ export class IdentityService {
     return {
       type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
       name: 'Chimera',
-      description: 'AI Agent for autonomous smart contract deployment on BNB Chain. Powered by ChainGPT for code generation and auditing, with gasless transactions via Q402.',
+      description: 'AI Agent for autonomous smart contract deployment on BNB Chain. Powered by ChainGPT for code generation and auditing, with gasless Q402/EIP-7702 payments.',
       image: `${baseUrl}/logo.png`,
       external_url: baseUrl,
+      
+      // Identity NFT info
+      identity: {
+        standard: 'ERC-8004',
+        agentId: this.agentId,
+        registryChainId: this.identityChainId,
+        registryNetwork: 'Base Sepolia',
+        registryAddress: this.registryAddress
+      },
+      
       endpoints: [
         {
-          name: 'A2A',
+          name: 'A2A Chat',
           endpoint: `${baseUrl}/api/chat`,
-          version: '1.0.0'
+          version: '1.0.0',
+          payment: 'free'
         },
         {
           name: 'Contract Generation',
-          endpoint: `${baseUrl}/api/contract/create`,
-          version: '1.0.0'
+          endpoint: `${baseUrl}/api/generate`,
+          version: '1.0.0',
+          payment: {
+            scheme: 'q402/eip7702',
+            amount: '1000000',
+            token: 'USDT'
+          }
         },
         {
           name: 'Smart Contract Audit',
           endpoint: `${baseUrl}/api/audit`,
-          version: '1.0.0'
+          version: '1.0.0',
+          payment: {
+            scheme: 'q402/eip7702',
+            amount: '500000',
+            token: 'USDT'
+          }
         }
       ],
       supportedTrust: ['reputation', 'validation'],
       capabilities: [
         'smart-contract-generation',
         'security-auditing',
-        'gasless-transactions',
+        'gasless-transactions-q402',
+        'eip-7702-delegated-payments',
         'defi-strategy-research'
       ],
-      networks: ['bsc-testnet'],
-      chainId: 97
+      operationalNetworks: ['bsc-mainnet', 'bsc-testnet'],
+      defaultOperationalChainId: 97
     };
   }
 
@@ -412,14 +458,24 @@ export class IdentityService {
       name: 'Chimera',
       version: '1.0.0',
       standard: 'ERC-8004',
-      chainId: this.chainId,
-      network: 'BNB Smart Chain Testnet',
       
-      // Registration status
-      deployed: !!this.agentId,
-      agentId: this.agentId,
+      // Identity is on Base Sepolia
+      identity: {
+        chainId: this.identityChainId,
+        network: 'Base Sepolia',
+        deployed: !!this.agentId,
+        agentId: this.agentId,
+        registryAddress: this.registryAddress,
+        nftUrl: this.agentId ? `https://sepolia.basescan.org/token/${this.registryAddress}?a=${this.agentId}` : null
+      },
+      
+      // Operations are on BSC
+      operations: {
+        chainId: this.operationalChainId,
+        network: 'BNB Smart Chain Testnet'
+      },
+      
       agentAddress: this.agentAddress,
-      registryAddress: this.registryAddress,
       
       // Metadata
       metadataURI: this.ipfsHash ? `ipfs://${this.ipfsHash}` : null,
@@ -428,7 +484,7 @@ export class IdentityService {
       capabilities: [
         'Smart Contract Generation',
         'Security Auditing', 
-        'Gasless Transaction Execution',
+        'Gasless Transaction Execution (Q402/EIP-7702)',
         'DeFi Strategy Research'
       ],
       
@@ -439,9 +495,9 @@ export class IdentityService {
       // Links
       links: {
         metadata: this.ipfsHash ? `https://gateway.pinata.cloud/ipfs/${this.ipfsHash}` : null,
-        registry: `https://testnet.bscscan.com/address/${this.registryAddress}`,
-        agent: this.agentId ? `https://testnet.bscscan.com/token/${this.registryAddress}?a=${this.agentId}` : null,
-        owner: this.agentAddress ? `https://testnet.bscscan.com/address/${this.agentAddress}` : null
+        identityRegistry: `https://sepolia.basescan.org/address/${this.registryAddress}`,
+        agentNFT: this.agentId ? `https://sepolia.basescan.org/token/${this.registryAddress}?a=${this.agentId}` : null,
+        operationsWallet: this.agentAddress ? `https://testnet.bscscan.com/address/${this.agentAddress}` : null
       },
 
       // Record from chain (if available)
@@ -497,10 +553,24 @@ export class IdentityService {
   getDeploymentStatus() {
     return {
       status: this.isDeployed() ? 'deployed' : 'pending',
-      chainId: this.chainId,
-      network: 'BNB Smart Chain Testnet',
-      registryAddress: this.registryAddress,
-      agentId: this.agentId,
+      
+      // Identity is registered on Base Sepolia
+      identity: {
+        chainId: this.identityChainId,
+        network: 'Base Sepolia',
+        registryAddress: this.registryAddress,
+        agentId: this.agentId,
+        nftUrl: this.agentId ? `https://sepolia.basescan.org/token/${this.registryAddress}?a=${this.agentId}` : null
+      },
+      
+      // Operations run on BSC
+      operations: {
+        chainId: this.operationalChainId,
+        network: 'BNB Smart Chain Testnet',
+        q402Enabled: true,
+        eip7702Enabled: true
+      },
+      
       ipfsHash: this.ipfsHash,
       steps: [
         {
@@ -512,23 +582,24 @@ export class IdentityService {
         {
           step: 2,
           title: 'Upload Metadata to IPFS',
-          description: 'Upload agent-metadata.json to Pinata',
+          description: 'Upload agent-metadata.json to Pinata (optional)',
           completed: this.ipfsHash && this.ipfsHash !== 'QmPENDING',
           action: 'POST /api/identity/upload-metadata'
         },
         {
           step: 3,
           title: 'Register on ERC-8004 Registry',
-          description: 'Mint agent identity NFT on BSC Testnet',
+          description: 'Mint agent identity NFT on Base Sepolia',
           completed: !!this.agentId,
-          action: 'POST /api/identity/register'
+          action: 'POST /api/identity/register',
+          result: this.agentId ? `Agent ID: ${this.agentId}` : null
         },
         {
           step: 4,
-          title: 'Verify Registration',
-          description: 'Confirm agent ID is stored',
-          completed: !!this.agentId,
-          action: 'GET /api/identity/status'
+          title: 'Q402 Payment Gateway',
+          description: 'Enable EIP-7702 gasless payments on BSC',
+          completed: true, // Always enabled
+          networks: ['bsc-mainnet', 'bsc-testnet']
         }
       ]
     };

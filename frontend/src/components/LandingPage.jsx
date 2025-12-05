@@ -4,8 +4,13 @@
  */
 
 import { Waves } from './Waves';
+import AgentIdentityBadge from './AgentIdentityBadge';
+import { WalletStatus } from './WalletStatus';
+import { useAgentStats } from '../hooks/useAgentStats';
 
 export function LandingPage({ onNavigate }) {
+  // Fetch real on-chain stats from Base Sepolia
+  const { totalAudits, valueSecured, lastActive, loading: statsLoading } = useAgentStats();
   const features = [
     {
       icon: '💬',
@@ -16,116 +21,187 @@ export function LandingPage({ onNavigate }) {
     },
     {
       icon: '🏗️',
-      title: 'Generate & Deploy',
-      description: 'Create smart contracts with AI and deploy instantly',
+      title: 'Generate',
+      description: 'Create & deploy smart contracts with AI',
       action: () => onNavigate('generate'),
       color: 'bg-green-400'
     },
     {
       icon: '🛡️',
-      title: 'Security Audit',
-      description: 'AI-powered smart contract vulnerability detection',
+      title: 'Audit',
+      description: 'AI-powered vulnerability detection',
       action: () => onNavigate('audit'),
       color: 'bg-amber-400'
     },
     {
       icon: '🔍',
-      title: 'Contract Analyzer',
-      description: 'Analyze any deployed contract on BSC',
+      title: 'Analyze',
+      description: 'Analyze any deployed contract',
       action: () => onNavigate('ingest'),
       color: 'bg-cyan-400'
     },
     {
       icon: '🔄',
-      title: 'Token Swap',
-      description: 'Swap tokens via PancakeSwap (gasless!)',
+      title: 'Swap',
+      description: 'Swap tokens via PancakeSwap',
       action: () => onNavigate('swap'),
       color: 'bg-purple-400'
     },
     {
       icon: '💸',
-      title: 'Send Tokens',
-      description: 'Transfer tokens to any address (gasless!)',
+      title: 'Transfer',
+      description: 'Send tokens to any address',
       action: () => onNavigate('transfer'),
       color: 'bg-pink-400'
     }
   ];
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh', overflow: 'hidden' }}>
-      {/* Wave Background */}
-      <Waves strokeColor="#4a5568" backgroundColor="#0a0a0a" />
+    <div style={{ 
+      position: 'relative', 
+      width: '100%', 
+      minHeight: '100vh',
+      overflowX: 'hidden',
+      overflowY: 'auto'
+    }}>
+      {/* Wave Background - Fixed */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+        <Waves strokeColor="#4a5568" backgroundColor="#0a0a0a" />
+      </div>
 
-      {/* Content Overlay */}
+      {/* Top Right Wallet Status - Fixed Position */}
+      <div style={{
+        position: 'fixed',
+        top: '1.5rem',
+        right: '1.5rem',
+        zIndex: 100,
+        animation: 'fadeInDown 0.8s ease-out'
+      }}>
+        <WalletStatus onNavigate={onNavigate} />
+      </div>
+
+      {/* Content Overlay - Scrollable */}
       <div style={{
         position: 'relative',
         zIndex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        padding: '2rem',
+        justifyContent: 'flex-start',
+        minHeight: '100vh',
+        padding: '2rem 1rem',
+        paddingTop: '4rem', // Extra padding for wallet status
         color: 'white',
         textAlign: 'center'
       }}>
-        {/* Logo/Title */}
+        {/* Logo/Title - Compact */}
         <div style={{
-          marginBottom: '3rem',
+          marginBottom: '1.5rem',
           animation: 'fadeInDown 1s ease-out'
         }}>
           <div style={{
-            fontSize: 'clamp(1.5rem, 5vw, 2.5rem)',
+            fontSize: 'clamp(0.9rem, 2vw, 1.2rem)',
             fontWeight: '300',
-            marginBottom: '0.5rem',
-            color: '#d4d4d4',
+            marginBottom: '0.25rem',
+            color: '#a3a3a3',
             letterSpacing: '0.3em',
-            textTransform: 'uppercase',
-            opacity: 0.7
+            textTransform: 'uppercase'
           }}>
             Welcome to
           </div>
           <h1 style={{
-            fontSize: 'clamp(3rem, 12vw, 8rem)',
+            fontSize: 'clamp(2.5rem, 8vw, 5rem)',
             fontWeight: '900',
-            marginBottom: '1rem',
+            marginBottom: '0.5rem',
             color: '#f5f5f5',
             letterSpacing: '-0.02em',
             textShadow: '0 0 40px rgba(245, 245, 245, 0.3)',
-            fontFamily: "'Inter', sans-serif"
+            fontFamily: "'Inter', sans-serif",
+            lineHeight: 1
           }}>
             CHIMERA
           </h1>
           <p style={{
-            fontSize: 'clamp(1.1rem, 3vw, 1.8rem)',
-            color: '#e5e5e5',
-            maxWidth: '800px',
+            fontSize: 'clamp(0.9rem, 2vw, 1.3rem)',
+            color: '#d4d4d4',
+            maxWidth: '600px',
             margin: '0 auto',
-            fontWeight: '400',
-            letterSpacing: '0.05em'
+            fontWeight: '400'
           }}>
             Deploy Smart Contracts with AI in Seconds
           </p>
           <p style={{
-            fontSize: 'clamp(0.9rem, 2vw, 1.2rem)',
-            color: '#a3a3a3',
-            marginTop: '1rem',
+            fontSize: 'clamp(0.7rem, 1.5vw, 0.9rem)',
+            color: '#737373',
+            marginTop: '0.5rem',
             letterSpacing: '0.1em'
           }}>
             ChainGPT • Q402 • AWE Network
           </p>
+          
+          {/* Agent Identity Badge - ERC-8004 Verified */}
+          <div style={{ 
+            marginTop: '1rem', 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.75rem',
+            animation: 'fadeInUp 1.2s ease-out'
+          }}>
+            <AgentIdentityBadge 
+              agentId="1581"
+              explorerUrl="https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=1581"
+              showNetwork={true}
+            />
+            
+            {/* Agent On-Chain Stats - Fetched from Base Sepolia */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              padding: '0.5rem 1rem',
+              background: 'rgba(255, 255, 255, 0.04)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '12px',
+              fontSize: '0.75rem',
+              color: '#a3a3a3',
+              letterSpacing: '0.02em'
+            }}>
+              {statsLoading ? (
+                <span style={{ color: '#a3a3a3' }}>Loading on-chain stats...</span>
+              ) : (
+                <>
+                  <span style={{ color: '#4ade80', fontWeight: '600' }}>
+                    Total Audits: {totalAudits ?? '—'}
+                  </span>
+                  <span style={{ opacity: 0.4 }}>|</span>
+                  <span style={{ color: '#60a5fa', fontWeight: '600' }}>
+                    Value Secured: {valueSecured ?? '—'}
+                  </span>
+                  <span style={{ opacity: 0.4 }}>|</span>
+                  <span style={{ color: '#fbbf24' }}>
+                    Last Active: {lastActive ?? '—'}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Feature Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '1.5rem',
-          maxWidth: '1400px',
-          width: '100%',
-          padding: '0 1rem',
-          marginBottom: '3rem'
-        }}>
+        {/* Feature Cards - 6 in a row on large screens */}
+        <div 
+          className="feature-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(6, 1fr)',
+            gap: '0.75rem',
+            maxWidth: '1200px',
+            width: '100%',
+            padding: '0 0.5rem',
+            marginBottom: '1.5rem'
+          }}
+        >
           {features.map((feature, idx) => (
             <div
               key={idx}
@@ -133,19 +209,20 @@ export function LandingPage({ onNavigate }) {
               style={{
                 background: 'rgba(250, 250, 250, 0.05)',
                 backdropFilter: 'blur(10px)',
-                border: '2px solid rgba(212, 212, 212, 0.1)',
-                borderRadius: '24px',
-                padding: '2.5rem 2rem',
+                border: '1px solid rgba(212, 212, 212, 0.1)',
+                borderRadius: '16px',
+                padding: '1.25rem 0.75rem',
                 textAlign: 'center',
-                animation: `fadeInUp 0.8s ease-out ${idx * 0.2}s backwards`,
+                animation: `fadeInUp 0.6s ease-out ${idx * 0.1}s backwards`,
                 transition: 'all 0.3s ease',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                minWidth: 0
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-10px) scale(1.02)';
-                e.currentTarget.style.background = 'rgba(250, 250, 250, 0.08)';
+                e.currentTarget.style.transform = 'translateY(-6px) scale(1.02)';
+                e.currentTarget.style.background = 'rgba(250, 250, 250, 0.1)';
                 e.currentTarget.style.borderColor = 'rgba(212, 212, 212, 0.3)';
-                e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.3)';
+                e.currentTarget.style.boxShadow = '0 12px 24px rgba(0, 0, 0, 0.3)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'translateY(0) scale(1)';
@@ -155,24 +232,31 @@ export function LandingPage({ onNavigate }) {
               }}
             >
               <div style={{
-                fontSize: '4rem',
-                marginBottom: '1rem',
-                filter: 'drop-shadow(0 0 10px rgba(255,255,255,0.3))'
+                fontSize: 'clamp(2rem, 4vw, 2.5rem)',
+                marginBottom: '0.5rem',
+                filter: 'drop-shadow(0 0 8px rgba(255,255,255,0.3))'
               }}>
                 {feature.icon}
               </div>
               <h3 style={{
-                fontSize: '1.5rem',
+                fontSize: 'clamp(0.85rem, 1.5vw, 1rem)',
                 fontWeight: '700',
-                marginBottom: '0.75rem',
-                color: '#f5f5f5'
+                marginBottom: '0.35rem',
+                color: '#f5f5f5',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
               }}>
                 {feature.title}
               </h3>
               <p style={{
-                fontSize: '1rem',
-                color: '#d4d4d4',
-                lineHeight: '1.6'
+                fontSize: 'clamp(0.65rem, 1vw, 0.8rem)',
+                color: '#a3a3a3',
+                lineHeight: '1.4',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden'
               }}>
                 {feature.description}
               </p>
@@ -180,55 +264,56 @@ export function LandingPage({ onNavigate }) {
           ))}
         </div>
 
-        {/* Stats Bar */}
+        {/* Stats Bar - Compact */}
         <div style={{
           display: 'flex',
-          gap: '3rem',
+          gap: '2rem',
           flexWrap: 'wrap',
           justifyContent: 'center',
-          color: '#d4d4d4'
+          color: '#d4d4d4',
+          padding: '0 1rem'
         }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#86efac' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#86efac' }}>
               10s
             </div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7, letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.1em' }}>
               DEPLOY TIME
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#93c5fd' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#93c5fd' }}>
               $0
             </div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7, letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.1em' }}>
               GAS FEES
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#fbbf24' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fbbf24' }}>
               100%
             </div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7, letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.1em' }}>
               AUDITED
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#c084fc' }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#c084fc' }}>
               ERC-8004
             </div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.7, letterSpacing: '0.1em' }}>
+            <div style={{ fontSize: '0.65rem', opacity: 0.7, letterSpacing: '0.1em' }}>
               IDENTITY
             </div>
           </div>
         </div>
       </div>
 
-      {/* Animations */}
+      {/* Animations & Responsive Styles */}
       <style>{`
         @keyframes fadeInDown {
           from {
             opacity: 0;
-            transform: translateY(-30px);
+            transform: translateY(-20px);
           }
           to {
             opacity: 1;
@@ -239,11 +324,34 @@ export function LandingPage({ onNavigate }) {
         @keyframes fadeInUp {
           from {
             opacity: 0;
-            transform: translateY(30px);
+            transform: translateY(20px);
           }
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        /* Responsive: 3 columns on medium screens */
+        @media (max-width: 1100px) {
+          .feature-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 0.5rem !important;
+          }
+        }
+
+        /* Responsive: 2 columns on small screens */
+        @media (max-width: 700px) {
+          .feature-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 0.5rem !important;
+          }
+        }
+
+        /* Responsive: single column on very small screens */
+        @media (max-width: 400px) {
+          .feature-grid {
+            grid-template-columns: 1fr !important;
           }
         }
       `}</style>

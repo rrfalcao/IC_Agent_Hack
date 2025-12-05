@@ -4,7 +4,7 @@
  * Helper functions for resource servers implementing x402 payment flow
  */
 
-import type { PaymentRequiredResponse } from "../types/payment";
+import type { PaymentRequiredResponse, PaymentDetails } from "../types/payment";
 
 /**
  * Standard x402 payment header format
@@ -36,7 +36,7 @@ export interface PaymentRequirement {
  * Create a 402 Payment Required response
  */
 export function createPaymentRequired(
-  accepts: PaymentRequirement[],
+  accepts: PaymentDetails[],
   error?: string,
 ): PaymentRequiredResponse {
   return {

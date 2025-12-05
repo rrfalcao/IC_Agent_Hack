@@ -6,7 +6,7 @@ var path = require('path');
 var viem = require('viem');
 var accounts = require('viem/accounts');
 var chains = require('viem/chains');
-var core = require('@x402-bnb/core');
+var core = require('@q402/core');
 var express = require('express');
 var ethers = require('ethers');
 
@@ -542,7 +542,7 @@ function createServer(config2, clientsMap) {
   });
   app.get("/", (_req, res) => {
     res.json({
-      name: "x402 BNB Facilitator",
+      name: "q402 Facilitator",
       version: "0.1.0",
       endpoints: {
         verify: "POST /verify",
@@ -579,7 +579,7 @@ function createServer(config2, clientsMap) {
 
 // src/index.ts
 async function main() {
-  console.log("Starting x402 BNB Facilitator...");
+  console.log("Starting q402 Facilitator...");
   const config2 = loadEnvConfig();
   console.log(`Host: ${config2.host}`);
   console.log(`Port: ${config2.port}`);

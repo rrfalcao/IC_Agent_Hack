@@ -9,7 +9,7 @@ import { cors } from 'hono/cors';
 import config from './config/index.js';
 import { ChainGPTService } from './services/chaingpt.js';
 import { BlockchainService } from './services/blockchain.js';
-import { createX402Middleware, getPayment } from './middleware/x402.js';
+import { createQ402Middleware, getQ402Payment } from './middleware/q402.js';
 import { auditLoop } from './services/auditLoop.js';
 import { facilitator } from './services/facilitator.js';
 import { identity } from './services/identity.js';
@@ -17,6 +17,7 @@ import { compiler } from './services/compiler.js';
 import { ingestion } from './services/ingestion.js';
 import { paymentService } from './services/payment.js';
 import { swapService } from './services/swap.js';
+import { creditsService, CHIM_PRICING } from './services/credits.js';
 
 // Initialize services
 const chaingpt = new ChainGPTService(config.chaingpt.apiKey);
@@ -31,28 +32,27 @@ const app = new Hono();
 // Middleware
 app.use('/*', cors());
 
-// x402 Payment middleware for premium endpoints (if enabled)
-const generatePaymentMiddleware = config.features.enablePayments 
-  ? createX402Middleware({
+// Q402 Payment middleware for premium endpoints
+// Now only used for buying CHIM credits with USDC
+// Service endpoints use CHIM credits directly
+const q402Middleware = createQ402Middleware({
+  network: config.blockchain.chainId === 56 ? 'bsc-mainnet' : 'bsc-testnet',
+  recipientAddress: config.payment.recipient,
+  demoMode: config.nodeEnv !== 'production', // Demo mode for non-production
+  endpoints: [
+    // Only the credits/buy endpoint requires USDT payment
+    // All other services now use CHIM credits
+    {
+      path: '/api/credits/buy',
       amount: config.payment.prices.generate,
-      token: config.payment.token,
-      recipient: config.payment.recipient,
-      chainId: config.blockchain.chainId,
-      verifyingContract: config.payment.verifyingContract,
-      description: 'Smart Contract Generation'
-    })
-  : null;
+      description: 'Buy CHIM Credits with USDC'
+    }
+  ]
+});
 
-const auditPaymentMiddleware = config.features.enablePayments
-  ? createX402Middleware({
-      amount: config.payment.prices.audit,
-      token: config.payment.token,
-      recipient: config.payment.recipient,
-      chainId: config.blockchain.chainId,
-      verifyingContract: config.payment.verifyingContract,
-      description: 'Smart Contract Auditing'
-    })
-  : null;
+// Q402 middleware is now only applied to specific routes that require USDT payment
+// Other services use CHIM credits directly
+// app.use('/*', q402Middleware); // DISABLED - using CHIM credits instead
 
 // Health check
 app.get('/health', (c) => {
@@ -193,19 +193,43 @@ app.post('/api/chat/blob', async (c) => {
 });
 
 // Contract generation endpoint with audit loop (streaming)
-app.post('/api/generate', generatePaymentMiddleware, async (c) => {
+app.post('/api/generate', async (c) => {
   try {
     const body = await c.req.json();
-    const { prompt, useAuditLoop = true } = body;
-    
-    // Log payment info if verified
-    const payment = getPayment(c);
-    if (payment) {
-      console.log('[API] Paid request from:', payment.payer);
-    }
+    const { prompt, useAuditLoop = true, userAddress, permitSignature } = body;
 
     if (!prompt) {
       return c.json({ error: 'Prompt is required' }, 400);
+    }
+
+    // Check and spend CHIM credits if user address provided
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'generate', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for contract generation',
+          required: CHIM_PRICING.generate.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/api/credits/buy',
+          pricing: CHIM_PRICING.generate
+        }, 402);
+      }
+      
+      console.log('[API] CHIM credits spent for generate:', spendResult);
+    } else {
+      // No user address - check for demo header
+      const demoSkip = c.req.header('x-demo-skip') === 'true';
+      if (!demoSkip) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Please provide userAddress with CHIM credits or use x-demo-skip header',
+          pricing: CHIM_PRICING.generate
+        }, 402);
+      }
+      console.log('[API] Demo skip for generate');
     }
 
     console.log('[API] Generate request:', prompt.substring(0, 100), '| Audit loop:', useAuditLoop);
@@ -260,15 +284,39 @@ app.post('/api/generate', generatePaymentMiddleware, async (c) => {
 });
 
 // Contract audit endpoint - accepts code OR contract address
-app.post('/api/audit', auditPaymentMiddleware, async (c) => {
+app.post('/api/audit', async (c) => {
   try {
     const body = await c.req.json();
-    const { code, address, includeRecommendations = true } = body;
-    
-    // Log payment info if verified
-    const payment = getPayment(c);
-    if (payment) {
-      console.log('[API] Paid request from:', payment.payer);
+    const { code, address, includeRecommendations = true, userAddress, permitSignature } = body;
+
+    // Check and spend CHIM credits if user address provided
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'audit', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for security audit',
+          required: CHIM_PRICING.audit.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/api/credits/buy',
+          pricing: CHIM_PRICING.audit
+        }, 402);
+      }
+      
+      console.log('[API] CHIM credits spent for audit:', spendResult);
+    } else {
+      // No user address - check for demo header
+      const demoSkip = c.req.header('x-demo-skip') === 'true';
+      if (!demoSkip) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Please provide userAddress with CHIM credits or use x-demo-skip header',
+          pricing: CHIM_PRICING.audit
+        }, 402);
+      }
+      console.log('[API] Demo skip for audit');
     }
 
     let sourceCode = code;
@@ -551,10 +599,48 @@ app.get('/api/facilitator/limits/:address', async (c) => {
 app.post('/api/contract/create', async (c) => {
   try {
     const body = await c.req.json();
-    const { prompt, autoAudit = true, autoDeploy = false, constructorArgs = [] } = body;
+    const { prompt, autoAudit = true, autoDeploy = false, constructorArgs = [], userAddress, permitSignature } = body;
 
     if (!prompt) {
       return c.json({ error: 'Prompt is required' }, 400);
+    }
+
+    // Check and spend CHIM credits
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'generate', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for contract generation',
+          required: CHIM_PRICING.generate.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/credits',
+          pricing: {
+            service: 'generate',
+            amount: CHIM_PRICING.generate.display,
+            description: 'Smart contract generation with AI'
+          }
+        }, 402);
+      }
+      
+      console.log('[API] CHIM credits spent for contract/create:', spendResult);
+    } else {
+      // No user address - check for demo skip header
+      const demoSkip = c.req.header('x-demo-skip') === 'true';
+      if (!demoSkip) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Connect your wallet to pay with CHIM credits',
+          pricing: {
+            service: 'generate',
+            amount: CHIM_PRICING.generate.display,
+            description: 'Smart contract generation with AI'
+          }
+        }, 402);
+      }
+      console.log('[API] Demo skip for contract/create');
     }
 
     console.log('[API] Contract creation request:', {
@@ -1352,6 +1438,505 @@ app.post('/api/contract/call/preview', async (c) => {
   }
 });
 
+// =====================================================
+// CHIM Credits Endpoints (Token Economy)
+// =====================================================
+
+// Get credit pricing and packages
+app.get('/api/credits/pricing', (c) => {
+  const pricing = creditsService.getAllPricing();
+  const packages = creditsService.getCreditPackages();
+  
+  return c.json({
+    success: true,
+    ...pricing,
+    packages
+  });
+});
+
+// Get user's CHIM balance
+app.get('/api/credits/balance/:address', async (c) => {
+  try {
+    const address = c.req.param('address');
+    const balance = await creditsService.getBalance(address);
+    
+    return c.json({
+      success: true,
+      address,
+      ...balance
+    });
+  } catch (error) {
+    console.error('[API] Balance error:', error);
+    return c.json({
+      error: 'Failed to get balance',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Check if user has enough credits for a service
+app.get('/api/credits/check/:address/:service', async (c) => {
+  try {
+    const address = c.req.param('address');
+    const service = c.req.param('service');
+    
+    const check = await creditsService.checkCredits(address, service);
+    
+    return c.json({
+      success: true,
+      ...check
+    });
+  } catch (error) {
+    console.error('[API] Credit check error:', error);
+    return c.json({
+      error: 'Failed to check credits',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Buy credits with USDC (x402 payment flow)
+// This endpoint requires x402 payment in USDC, then distributes CHIM
+app.post('/api/credits/buy', q402Middleware, async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userAddress, packageId } = body;
+    
+    if (!userAddress) {
+      return c.json({ error: 'User address required' }, 400);
+    }
+    
+    // Get payment info from Q402 middleware
+    const payment = getQ402Payment(c);
+    
+    // Determine CHIM amount based on package or USDC paid
+    let chimAmount;
+    const packages = creditsService.getCreditPackages();
+    const selectedPackage = packages.find(p => p.id === packageId);
+    
+    if (selectedPackage) {
+      chimAmount = selectedPackage.chimAmount;
+    } else if (payment?.amount) {
+      // Calculate based on USDC paid
+      const conversion = creditsService.calculateCreditsForUsdc(payment.amount);
+      chimAmount = conversion.chimAmount;
+    } else {
+      // Default: 50 CHIM (starter pack equivalent)
+      chimAmount = '50';
+    }
+    
+    console.log('[API] Buy credits:', { userAddress, chimAmount, payment: payment?.method });
+    
+    // Distribute credits to user
+    const result = await creditsService.distributeCredits(
+      userAddress,
+      chimAmount,
+      payment?.amount || '0'
+    );
+    
+    return c.json({
+      success: true,
+      message: 'Credits purchased successfully!',
+      ...result,
+      package: selectedPackage || null
+    });
+  } catch (error) {
+    console.error('[API] Buy credits error:', error);
+    return c.json({
+      error: 'Failed to purchase credits',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Spend credits for a service (with optional permit signature)
+app.post('/api/credits/spend', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userAddress, service, permitSignature } = body;
+    
+    if (!userAddress || !service) {
+      return c.json({ error: 'User address and service required' }, 400);
+    }
+    
+    console.log('[API] Spend credits:', { userAddress, service });
+    
+    const result = await creditsService.spendCredits(
+      userAddress,
+      service,
+      permitSignature
+    );
+    
+    if (!result.success) {
+      // Insufficient credits - return 402-like response
+      return c.json({
+        error: 'Insufficient credits',
+        ...result,
+        buyUrl: '/api/credits/buy',
+        pricing: CHIM_PRICING[service]
+      }, 402);
+    }
+    
+    return c.json({
+      success: true,
+      message: `${CHIM_PRICING[service]?.display || service} credits spent`,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Spend credits error:', error);
+    return c.json({
+      error: 'Failed to spend credits',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Generate permit typed data for gasless credit spending
+app.post('/api/credits/permit', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userAddress, service, deadline } = body;
+    
+    if (!userAddress || !service) {
+      return c.json({ error: 'User address and service required' }, 400);
+    }
+    
+    const typedData = await creditsService.generatePermitTypedData(
+      userAddress,
+      service,
+      deadline
+    );
+    
+    return c.json({
+      success: true,
+      typedData,
+      instructions: {
+        step1: 'Sign the typed data with your wallet (signTypedData)',
+        step2: 'Submit the signature to /api/credits/spend with permitSignature',
+        step3: 'Your credits will be spent without paying gas'
+      }
+    });
+  } catch (error) {
+    console.error('[API] Permit generation error:', error);
+    return c.json({
+      error: 'Failed to generate permit data',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Award bonus credits (admin/demo endpoint)
+app.post('/api/credits/award', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userAddress, amount, reason } = body;
+    
+    if (!userAddress || !amount) {
+      return c.json({ error: 'User address and amount required' }, 400);
+    }
+    
+    console.log('[API] Award bonus credits:', { userAddress, amount, reason });
+    
+    const result = await creditsService.awardBonus(
+      userAddress,
+      amount,
+      reason || 'bonus'
+    );
+    
+    return c.json({
+      success: true,
+      message: `${amount} CHIM awarded`,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Award credits error:', error);
+    return c.json({
+      error: 'Failed to award credits',
+      message: error.message
+    }, 500);
+  }
+});
+
+// =====================================================
+// CHIM-Protected Endpoints (Credit-Gated Services)
+// =====================================================
+
+// Generate contract with CHIM payment
+app.post('/api/v2/generate', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { prompt, userAddress, permitSignature, useAuditLoop = true } = body;
+    
+    if (!prompt) {
+      return c.json({ error: 'Prompt is required' }, 400);
+    }
+    
+    // Check and spend credits if user address provided
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'generate', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for contract generation',
+          required: CHIM_PRICING.generate.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/api/credits/buy',
+          pricing: CHIM_PRICING.generate
+        }, 402);
+      }
+      
+      console.log('[API] Credits spent for generate:', spendResult);
+    }
+    
+    // Proceed with generation (same as original /api/generate)
+    return streamSSE(c, async (stream) => {
+      try {
+        if (useAuditLoop && config.features.enableAuditLoop) {
+          for await (const update of auditLoop.generateWithAudit(prompt)) {
+            await stream.writeSSE({
+              data: JSON.stringify(update),
+              event: update.type
+            });
+          }
+        } else {
+          await stream.writeSSE({
+            data: JSON.stringify({ type: 'generating' }),
+            event: 'status'
+          });
+
+          for await (const chunk of chaingpt.generateContractStream(prompt)) {
+            await stream.writeSSE({
+              data: chunk,
+              event: 'code'
+            });
+          }
+
+          await stream.writeSSE({
+            data: JSON.stringify({ type: 'completed' }),
+            event: 'status'
+          });
+        }
+      } catch (error) {
+        console.error('[API] Generate error:', error);
+        await stream.writeSSE({
+          data: JSON.stringify({ type: 'error', message: error.message }),
+          event: 'error'
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[API] Generate error:', error);
+    return c.json({
+      error: 'Generation failed',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Audit contract with CHIM payment
+app.post('/api/v2/audit', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { code, address, userAddress, permitSignature, includeRecommendations = true } = body;
+    
+    // Check and spend credits if user address provided
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'audit', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for security audit',
+          required: CHIM_PRICING.audit.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/api/credits/buy',
+          pricing: CHIM_PRICING.audit
+        }, 402);
+      }
+      
+      console.log('[API] Credits spent for audit:', spendResult);
+    }
+    
+    // Rest of audit logic (same as /api/audit)
+    let sourceCode = code;
+    let contractInfo = null;
+
+    if (address && !code) {
+      const contractData = await ingestion.ingestContract(address);
+      
+      if (contractData.sourceCode) {
+        sourceCode = contractData.sourceCode;
+        contractInfo = {
+          address,
+          name: contractData.contractName,
+          verified: contractData.verified,
+          network: 'BSC Testnet'
+        };
+      } else if (contractData.isContract) {
+        return c.json({
+          error: 'Contract not verified',
+          message: 'Contract exists but source code is not verified on BSCScan.'
+        }, 400);
+      } else {
+        return c.json({
+          error: 'Not a contract',
+          message: 'Address is not a smart contract'
+        }, 400);
+      }
+    }
+
+    if (!sourceCode) {
+      return c.json({ 
+        error: 'Code or address required'
+      }, 400);
+    }
+
+    const result = await chaingpt.auditContract(sourceCode);
+    const passed = result.score >= config.features.auditScoreThreshold;
+    const vulnerabilities = parseVulnerabilities(result.report);
+
+    const response = {
+      success: result.success,
+      score: result.score,
+      passed,
+      threshold: config.features.auditScoreThreshold,
+      report: result.report,
+      summary: {
+        riskLevel: result.score >= 90 ? 'Low' : result.score >= 70 ? 'Medium' : 'High',
+        criticalIssues: vulnerabilities.critical,
+        highIssues: vulnerabilities.high,
+        mediumIssues: vulnerabilities.medium,
+        lowIssues: vulnerabilities.low,
+        informational: vulnerabilities.info
+      }
+    };
+
+    if (contractInfo) response.contract = contractInfo;
+    if (includeRecommendations && vulnerabilities.total > 0) {
+      response.recommendations = vulnerabilities.recommendations;
+    }
+
+    return c.json(response);
+  } catch (error) {
+    console.error('[API] Audit error:', error);
+    return c.json({
+      error: 'Audit failed',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Swap with CHIM payment
+app.post('/api/v2/swap', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { tokenIn, tokenOut, amountIn, recipient, userAddress, permitSignature, slippageTolerance } = body;
+
+    if (!amountIn || !recipient) {
+      return c.json({ error: 'Amount and recipient are required' }, 400);
+    }
+
+    // Check and spend credits if user address provided
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'swap', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for swap execution',
+          required: CHIM_PRICING.swap.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/api/credits/buy',
+          pricing: CHIM_PRICING.swap
+        }, 402);
+      }
+      
+      console.log('[API] Credits spent for swap:', spendResult);
+    }
+
+    console.log('[API] Executing swap...');
+
+    const swapTx = await swapService.buildSwapTransaction({
+      tokenIn,
+      tokenOut,
+      amountIn,
+      recipient,
+      slippageTolerance
+    });
+
+    const result = await swapService.executeSwap(swapTx, facilitator);
+
+    return c.json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    console.error('[API] Swap execution error:', error);
+    return c.json({
+      error: 'Swap execution failed',
+      message: error.message
+    }, 500);
+  }
+});
+
+// Transfer with CHIM payment
+app.post('/api/v2/transfer', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { token, to, amount, userAddress, permitSignature, signature } = body;
+
+    if (!to || !amount) {
+      return c.json({ error: 'Recipient and amount are required' }, 400);
+    }
+
+    // Check and spend credits if user address provided
+    if (userAddress) {
+      const spendResult = await creditsService.spendCredits(userAddress, 'transfer', permitSignature);
+      
+      if (!spendResult.success) {
+        return c.json({
+          error: 'Payment Required',
+          message: 'Insufficient CHIM credits for gas-sponsored transfer',
+          required: CHIM_PRICING.transfer.display,
+          balance: spendResult.balance,
+          shortfall: spendResult.shortfall,
+          buyUrl: '/api/credits/buy',
+          pricing: CHIM_PRICING.transfer
+        }, 402);
+      }
+      
+      console.log('[API] Credits spent for transfer:', spendResult);
+    }
+
+    console.log('[API] Transfer request:', { token, to, amount });
+
+    const intent = {
+      type: 'transfer',
+      data: { token, to, amount },
+      nonce: Date.now(),
+      deadline: Math.floor(Date.now() / 1000) + 3600
+    };
+
+    const result = await facilitator.executeUserIntent(intent, signature || 'auto-transfer');
+
+    return c.json({
+      success: true,
+      ...result,
+      bscScanUrl: `https://testnet.bscscan.com/tx/${result.txHash}`
+    });
+  } catch (error) {
+    console.error('[API] Transfer error:', error);
+    return c.json({
+      error: 'Transfer failed',
+      message: error.message
+    }, 500);
+  }
+});
+
 // 404 handler
 app.notFound((c) => {
   return c.json({
@@ -1421,6 +2006,21 @@ console.log(`
    💸 Transfer & Call:
    POST /api/transfer              - Transfer tokens
    POST /api/contract/call         - Call contract function
+   
+   🪙 CHIM Credits (Token Economy):
+   GET  /api/credits/pricing       - Get service pricing & packages
+   GET  /api/credits/balance/:addr - Get user's CHIM balance
+   GET  /api/credits/check/:addr/:svc - Check if user can afford service
+   POST /api/credits/buy           - Buy credits with USDC (x402)
+   POST /api/credits/spend         - Spend credits for service
+   POST /api/credits/permit        - Generate permit for gasless spend
+   POST /api/credits/award         - Award bonus credits (demo)
+   
+   🔒 CHIM-Protected Services (v2):
+   POST /api/v2/generate           - Generate contract (CHIM payment)
+   POST /api/v2/audit              - Audit contract (CHIM payment)
+   POST /api/v2/swap               - Execute swap (CHIM payment)
+   POST /api/v2/transfer           - Transfer tokens (CHIM payment)
 
 Ready to deploy! 🚀
 `);

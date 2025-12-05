@@ -134,21 +134,21 @@ function validateAmount(amount) {
 }
 
 // src/utils/errors.ts
-var X402BnbError = class extends Error {
+var Q402Error = class extends Error {
   constructor(message, code, details) {
     super(message);
     this.code = code;
     this.details = details;
-    this.name = "X402BnbError";
+    this.name = "Q402Error";
   }
 };
-var PaymentValidationError = class extends X402BnbError {
+var PaymentValidationError = class extends Q402Error {
   constructor(message, details) {
     super(message, "PAYMENT_VALIDATION_ERROR", details);
     this.name = "PaymentValidationError";
   }
 };
-var SignatureError = class extends X402BnbError {
+var SignatureError = class extends Q402Error {
   constructor(message, details) {
     super(message, "SIGNATURE_ERROR", details);
     this.name = "SignatureError";
@@ -404,7 +404,7 @@ async function createPaymentHeader(account, paymentDetails) {
     to: paymentDetails.to
   });
   const domain = {
-    name: "x402 BNB",
+    name: "q402",
     version: "1",
     chainId: paymentDetails.authorization.chainId,
     verifyingContract: paymentDetails.authorization.address
@@ -434,7 +434,7 @@ async function createPaymentHeaderWithWallet(walletClient, paymentDetails) {
     to: paymentDetails.to
   });
   const domain = {
-    name: "x402 BNB",
+    name: "q402",
     version: "1",
     chainId: paymentDetails.authorization.chainId,
     verifyingContract: paymentDetails.authorization.address
@@ -549,7 +549,7 @@ function createEip7702PaymentRequirement(amount, tokenAddress, recipientAddress,
     maxTimeoutSeconds: 60,
     asset: tokenAddress,
     extra: {
-      name: "x402 BNB",
+      name: "q402",
       version: "1"
     }
   };

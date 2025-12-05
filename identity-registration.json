@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "agentId": "1581",
+  "transactionHash": "0x80d8736ffad3cc693e87f2560d75bfa9f5ce9ffd02ee6a102615f0656ceb25c5",
+  "blockNumber": 34587598,
+  "tokenUri": "http://localhost:3000/.well-known/agent-metadata.json",
+  "address": "0x3710FEbef97cC9705b273C93f2BEB9aDf091Ffc9",
+  "registryAddress": "0x8004AA63c570c570eBF15376c0dB199918BFe9Fb",
+  "chainId": 84532,
+  "network": "Base Sepolia",
+  "timestamp": "2025-12-05T14:04:43.214Z",
+  "ipfsHash": null,
+  "explorerTx": "https://sepolia.basescan.org/tx/0x80d8736ffad3cc693e87f2560d75bfa9f5ce9ffd02ee6a102615f0656ceb25c5",
+  "explorerNft": "https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=1581"
+}

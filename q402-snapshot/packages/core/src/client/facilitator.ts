@@ -66,7 +66,7 @@ export class FacilitatorClient {
         throw new Error(`Facilitator verification failed: ${response.status} - ${errorData.message || response.statusText}`);
       }
 
-      return await response.json();
+      return await response.json() as FacilitatorVerificationResponse;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -94,7 +94,7 @@ export class FacilitatorClient {
         throw new Error(`Facilitator settlement failed: ${response.status} - ${errorData.message || response.statusText}`);
       }
 
-      return await response.json();
+      return await response.json() as FacilitatorSettlementResponse;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -118,7 +118,7 @@ export class FacilitatorClient {
         throw new Error(`Failed to get supported schemes: ${response.status} - ${errorData.message || response.statusText}`);
       }
 
-      return await response.json();
+      return await response.json() as FacilitatorSupportedResponse;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -140,7 +140,7 @@ export class FacilitatorClient {
         throw new Error(`Health check failed: ${response.status}`);
       }
 
-      return await response.json();
+      return await response.json() as { status: string };
     } catch (error) {
       if (error instanceof Error) {
         throw error;

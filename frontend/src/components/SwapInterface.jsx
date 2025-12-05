@@ -10,6 +10,7 @@ import { useAccount, useSignTypedData } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
 import { GlassPanel } from './GlassPanel';
+import { useAgentBrain } from '../hooks/useAgentBrain';
 
 const DEFAULT_TOKENS = {
   native: { symbol: 'tBNB', name: 'Test BNB', decimals: 18, address: null },
@@ -21,6 +22,7 @@ const DEFAULT_TOKENS = {
 export function SwapInterface() {
   const { address: userAddress, isConnected } = useAccount();
   const { signTypedDataAsync } = useSignTypedData();
+  const brain = useAgentBrain();
   
   const [tokenIn, setTokenIn] = useState('native');
   const [tokenOut, setTokenOut] = useState('BUSD');
@@ -116,7 +118,7 @@ export function SwapInterface() {
     }
   };
 
-  // Step 2: After payment, sign and execute swap
+  // Step 2: After payment, sign and execute swap with Brain visualization
   const handlePaymentComplete = async (paymentId, signature) => {
     setShowPayment(false);
     setPaymentComplete(true);
@@ -125,76 +127,82 @@ export function SwapInterface() {
     setSuccess(null);
 
     try {
-      const domain = {
-        name: 'Chimera',
-        version: '1',
-        chainId: 97
-      };
+      // Use the global brain for visualization
+      await brain.runSwap(async () => {
+        const domain = {
+          name: 'Chimera',
+          version: '1',
+          chainId: 97
+        };
 
-      const types = {
-        Intent: [
-          { name: 'type', type: 'string' },
-          { name: 'nonce', type: 'uint256' },
-          { name: 'deadline', type: 'uint256' },
-          { name: 'dataHash', type: 'bytes32' }
-        ]
-      };
+        const types = {
+          Intent: [
+            { name: 'type', type: 'string' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'deadline', type: 'uint256' },
+            { name: 'dataHash', type: 'bytes32' }
+          ]
+        };
 
-      const nonce = BigInt(Date.now());
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-      
-      const dataString = JSON.stringify({ tokenIn, tokenOut, amountIn });
-      const encoder = new TextEncoder();
-      const data = encoder.encode(dataString);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const dataHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const nonce = BigInt(Date.now());
+        const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+        
+        const dataString = JSON.stringify({ tokenIn, tokenOut, amountIn });
+        const encoder = new TextEncoder();
+        const data = encoder.encode(dataString);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const dataHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 
-      const message = {
-        type: 'swap',
-        nonce,
-        deadline,
-        dataHash
-      };
+        const message = {
+          type: 'swap',
+          nonce,
+          deadline,
+          dataHash
+        };
 
-      const intentSignature = await signTypedDataAsync({
-        domain,
-        types,
-        primaryType: 'Intent',
-        message
-      });
+        const intentSignature = await signTypedDataAsync({
+          domain,
+          types,
+          primaryType: 'Intent',
+          message
+        });
 
-      console.log('Swap intent signed');
+        console.log('Swap intent signed');
 
-      const tokenInAddr = tokenIn === 'native' ? null : DEFAULT_TOKENS[tokenIn]?.address;
-      const tokenOutAddr = tokenOut === 'native' ? null : DEFAULT_TOKENS[tokenOut]?.address;
+        const tokenInAddr = tokenIn === 'native' ? null : DEFAULT_TOKENS[tokenIn]?.address;
+        const tokenOutAddr = tokenOut === 'native' ? null : DEFAULT_TOKENS[tokenOut]?.address;
 
-      const response = await fetch('http://localhost:3000/api/swap/execute', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `x402 paymentId=${paymentId}`
-        },
-        body: JSON.stringify({
-          tokenIn: tokenInAddr,
-          tokenOut: tokenOutAddr,
-          amountIn,
-          recipient: userAddress,
-          slippageTolerance: slippage,
-          signature: intentSignature
-        }),
-      });
+        const response = await fetch('http://localhost:3000/api/swap/execute', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `x402 paymentId=${paymentId}`
+          },
+          body: JSON.stringify({
+            tokenIn: tokenInAddr,
+            tokenOut: tokenOutAddr,
+            amountIn,
+            recipient: userAddress,
+            slippageTolerance: slippage,
+            signature: intentSignature
+          }),
+        });
 
-      const responseData = await response.json();
+        const responseData = await response.json();
 
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Swap failed');
-      }
+        if (!response.ok) {
+          throw new Error(responseData.message || 'Swap failed');
+        }
 
-      setSuccess({
-        message: 'Swap transaction prepared!',
-        ...responseData
-      });
+        setSuccess({
+          message: 'Swap transaction prepared!',
+          ...responseData
+        });
+
+        return responseData;
+      }, { tokenIn: DEFAULT_TOKENS[tokenIn]?.symbol, tokenOut: DEFAULT_TOKENS[tokenOut]?.symbol, amount: amountIn });
+
     } catch (err) {
       if (!err.message?.includes('User rejected')) {
         setError(err.message);

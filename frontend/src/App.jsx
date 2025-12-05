@@ -6,21 +6,25 @@
 import { useState, useEffect } from 'react';
 import { Waves } from './components/Waves';
 import { LandingPage } from './components/LandingPage';
-import { WalletConnect } from './components/WalletConnect';
+import { WalletStatus } from './components/WalletStatus';
+import { CreditCostBadge } from './components/CreditBalance';
 import { ChatInterface } from './components/ChatInterface';
 import { ContractGenerator } from './components/ContractGenerator';
 import { ContractIngestor } from './components/ContractIngestor';
 import { ContractAuditor } from './components/ContractAuditor';
 import { SwapInterface } from './components/SwapInterface';
 import { TransferInterface } from './components/TransferInterface';
+import CreditsPage from './components/CreditsPage';
 import { CartoonButton } from './components/CartoonButton';
+import AgentIdentityBadge from './components/AgentIdentityBadge';
+import { AgentBrain } from './components/AgentBrain';
 import { getAgentInfo } from './services/api';
 import './App.css';
 
 function App() {
   const [agentInfo, setAgentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState('landing'); // 'landing', 'chat', 'generate', 'audit', 'ingest', 'swap', 'transfer'
+  const [currentPage, setCurrentPage] = useState('landing'); // 'landing', 'chat', 'generate', 'audit', 'ingest', 'swap', 'transfer', 'credits'
 
   useEffect(() => {
     // Fetch agent info on mount
@@ -46,6 +50,9 @@ function App() {
       minHeight: '100vh',
       overflow: 'hidden'
     }}>
+      {/* Global Agent Brain Drawer */}
+      <AgentBrain />
+
       {/* Wave Background */}
       <Waves strokeColor="#4a5568" backgroundColor="#0a0a0a" />
 
@@ -96,19 +103,28 @@ function App() {
             </button>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              {/* Wallet Status with CHIM Balance */}
+              <WalletStatus onNavigate={handleNavigate} />
+              
+              {/* Agent Identity Badge - ERC-8004 Verified */}
+              <AgentIdentityBadge 
+                agentId="1581"
+                explorerUrl="https://sepolia.basescan.org/token/0x8004AA63c570c570eBF15376c0dB199918BFe9Fb?a=1581"
+              />
+              
               {agentInfo && (
                 <div style={{ 
-                  fontSize: '0.9rem', 
-                  color: '#d4d4d4',
+                  fontSize: '0.85rem', 
+                  color: '#a3a3a3',
                   background: 'rgba(0,0,0,0.3)',
-                  padding: '0.5rem 1rem',
-                  borderRadius: '12px',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '10px',
                   display: 'flex',
-                  gap: '1rem',
+                  gap: '0.75rem',
                   border: '1px solid rgba(212, 212, 212, 0.1)'
                 }}>
                   <span>Block: {agentInfo.blockchain?.currentBlock}</span>
-                  <span>|</span>
+                  <span style={{ opacity: 0.4 }}>|</span>
                   <span>Gas: {agentInfo.blockchain?.gasPrice} Gwei</span>
                 </div>
               )}
@@ -136,30 +152,51 @@ function App() {
             color={currentPage === 'chat' ? 'bg-blue-400' : 'bg-gray-500'}
             onClick={() => handleNavigate('chat')}
           />
+          <div className="relative">
+            <CartoonButton
+              label="🏗️ Generate"
+              color={currentPage === 'generate' ? 'bg-green-400' : 'bg-gray-500'}
+              onClick={() => handleNavigate('generate')}
+            />
+            <CreditCostBadge service="generate" className="absolute -top-2 -right-2 scale-75" />
+          </div>
+          <div className="relative">
+            <CartoonButton
+              label="🛡️ Audit"
+              color={currentPage === 'audit' ? 'bg-amber-400' : 'bg-gray-500'}
+              onClick={() => handleNavigate('audit')}
+            />
+            <CreditCostBadge service="audit" className="absolute -top-2 -right-2 scale-75" />
+          </div>
+          <div className="relative">
+            <CartoonButton
+              label="🔍 Analyze"
+              color={currentPage === 'ingest' ? 'bg-cyan-400' : 'bg-gray-500'}
+              onClick={() => handleNavigate('ingest')}
+            />
+            <CreditCostBadge service="analyze" className="absolute -top-2 -right-2 scale-75" />
+          </div>
+          <div className="relative">
+            <CartoonButton
+              label="🔄 Swap"
+              color={currentPage === 'swap' ? 'bg-purple-400' : 'bg-gray-500'}
+              onClick={() => handleNavigate('swap')}
+            />
+            <CreditCostBadge service="swap" className="absolute -top-2 -right-2 scale-75" />
+          </div>
+          <div className="relative">
+            <CartoonButton
+              label="💸 Transfer"
+              color={currentPage === 'transfer' ? 'bg-pink-400' : 'bg-gray-500'}
+              onClick={() => handleNavigate('transfer')}
+            />
+            <CreditCostBadge service="transfer" className="absolute -top-2 -right-2 scale-75" />
+          </div>
+          <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 0.5rem' }} />
           <CartoonButton
-            label="🏗️ Generate"
-            color={currentPage === 'generate' ? 'bg-green-400' : 'bg-gray-500'}
-            onClick={() => handleNavigate('generate')}
-          />
-          <CartoonButton
-            label="🛡️ Audit"
-            color={currentPage === 'audit' ? 'bg-amber-400' : 'bg-gray-500'}
-            onClick={() => handleNavigate('audit')}
-          />
-          <CartoonButton
-            label="🔍 Analyze"
-            color={currentPage === 'ingest' ? 'bg-cyan-400' : 'bg-gray-500'}
-            onClick={() => handleNavigate('ingest')}
-          />
-          <CartoonButton
-            label="🔄 Swap"
-            color={currentPage === 'swap' ? 'bg-purple-400' : 'bg-gray-500'}
-            onClick={() => handleNavigate('swap')}
-          />
-          <CartoonButton
-            label="💸 Transfer"
-            color={currentPage === 'transfer' ? 'bg-pink-400' : 'bg-gray-500'}
-            onClick={() => handleNavigate('transfer')}
+            label="🪙 Credits"
+            color={currentPage === 'credits' ? 'bg-amber-400' : 'bg-gray-500'}
+            onClick={() => handleNavigate('credits')}
           />
         </div>
 
@@ -187,11 +224,6 @@ function App() {
             </div>
           ) : (
             <>
-              {/* Wallet Connection */}
-              <div style={{ marginBottom: '2rem' }}>
-                <WalletConnect />
-              </div>
-
               {/* Page Content */}
               {currentPage === 'chat' && (
                 <>
@@ -233,6 +265,10 @@ function App() {
 
               {currentPage === 'transfer' && (
                 <TransferInterface />
+              )}
+
+              {currentPage === 'credits' && (
+                <CreditsPage />
               )}
             </>
           )}

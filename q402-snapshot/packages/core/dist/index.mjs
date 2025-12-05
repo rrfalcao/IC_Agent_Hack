@@ -266,33 +266,33 @@ function parseBigInt(value) {
 }
 
 // src/utils/errors.ts
-var X402BnbError = class extends Error {
+var Q402Error = class extends Error {
   constructor(message, code, details) {
     super(message);
     this.code = code;
     this.details = details;
-    this.name = "X402BnbError";
+    this.name = "Q402Error";
   }
 };
-var PaymentValidationError = class extends X402BnbError {
+var PaymentValidationError = class extends Q402Error {
   constructor(message, details) {
     super(message, "PAYMENT_VALIDATION_ERROR", details);
     this.name = "PaymentValidationError";
   }
 };
-var SignatureError = class extends X402BnbError {
+var SignatureError = class extends Q402Error {
   constructor(message, details) {
     super(message, "SIGNATURE_ERROR", details);
     this.name = "SignatureError";
   }
 };
-var NetworkError = class extends X402BnbError {
+var NetworkError = class extends Q402Error {
   constructor(message, details) {
     super(message, "NETWORK_ERROR", details);
     this.name = "NetworkError";
   }
 };
-var TransactionError = class extends X402BnbError {
+var TransactionError = class extends Q402Error {
   constructor(message, details) {
     super(message, "TRANSACTION_ERROR", details);
     this.name = "TransactionError";
@@ -608,7 +608,7 @@ async function createPaymentHeader(account, paymentDetails) {
     to: paymentDetails.to
   });
   const domain = {
-    name: "x402 BNB",
+    name: "q402",
     version: "1",
     chainId: paymentDetails.authorization.chainId,
     verifyingContract: paymentDetails.authorization.address
@@ -638,7 +638,7 @@ async function createPaymentHeaderWithWallet(walletClient, paymentDetails) {
     to: paymentDetails.to
   });
   const domain = {
-    name: "x402 BNB",
+    name: "q402",
     version: "1",
     chainId: paymentDetails.authorization.chainId,
     verifyingContract: paymentDetails.authorization.address
@@ -747,7 +747,7 @@ function createEip7702PaymentRequirement(amount, tokenAddress, recipientAddress,
     maxTimeoutSeconds: 60,
     asset: tokenAddress,
     extra: {
-      name: "x402 BNB",
+      name: "q402",
       version: "1"
     }
   };
@@ -851,36 +851,112 @@ var Erc20Abi = [
   }
 ];
 
-// src/contracts/addresses.ts
-var ImplementationAddresses = {
-  [SupportedNetworks.BSC_MAINNET]: "0x0000000000000000000000000000000000000000",
-  // TODO: Deploy and update
-  [SupportedNetworks.BSC_TESTNET]: "0x0000000000000000000000000000000000000000"
-  // TODO: Deploy and update
-};
-function getImplementationAddress(network) {
-  const address = ImplementationAddresses[network];
-  if (!address || address === "0x0000000000000000000000000000000000000000") {
-    throw new Error(`Implementation contract not deployed on network: ${network}`);
+// src/facilitator/verification.ts
+async function verifyPayment(payload) {
+  try {
+    const { witnessSignature, authorization, paymentDetails } = payload;
+    if (!witnessSignature || !authorization || !paymentDetails) {
+      return {
+        isValid: false,
+        invalidReason: ErrorReason.INVALID_SIGNATURE
+      };
+    }
+    const now = Math.floor(Date.now() / 1e3);
+    const witness = paymentDetails.witness;
+    if (witness?.message?.deadline && now > Number(witness.message.deadline)) {
+      return {
+        isValid: false,
+        invalidReason: ErrorReason.PAYMENT_EXPIRED
+      };
+    }
+    const witnessValid = isValidSignature(witnessSignature);
+    const authorizationValid = isValidAuthorization(authorization);
+    if (!witnessValid) {
+      return {
+        isValid: false,
+        invalidReason: ErrorReason.INVALID_SIGNATURE
+      };
+    }
+    if (!authorizationValid) {
+      return {
+        isValid: false,
+        invalidReason: ErrorReason.INVALID_AUTHORIZATION
+      };
+    }
+    const amountValid = "amount" in paymentDetails ? isValidAmount(paymentDetails.amount) : true;
+    const recipientValid = isValidRecipient(paymentDetails.to);
+    if (!amountValid) {
+      return {
+        isValid: false,
+        invalidReason: ErrorReason.INVALID_AMOUNT
+      };
+    }
+    if (!recipientValid) {
+      return {
+        isValid: false,
+        invalidReason: ErrorReason.INVALID_RECIPIENT
+      };
+    }
+    return {
+      isValid: true,
+      payer: authorization.address,
+      details: {
+        witnessValid,
+        authorizationValid,
+        amountValid,
+        deadlineValid: true,
+        recipientValid
+      }
+    };
+  } catch (error) {
+    console.error("Payment verification error:", error);
+    return {
+      isValid: false,
+      invalidReason: ErrorReason.UNEXPECTED_ERROR
+    };
   }
-  return address;
 }
-var CommonTokens = {
-  BSC_MAINNET: {
-    USDT: "0x55d398326f99059fF775485246999027B3197955",
-    USDC: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-    BUSD: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
-    DAI: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3"
-  },
-  BSC_TESTNET: {
-    USDT: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
-    USDC: "0x64544969ed7EBf5f083679233325356EbE738930"
+function isValidSignature(signature) {
+  return typeof signature === "string" && signature.startsWith("0x") && signature.length === 132;
+}
+function isValidAuthorization(authorization) {
+  const { chainId, address, nonce, yParity, r, s } = authorization;
+  return !!(typeof chainId === "number" && chainId > 0 && typeof address === "string" && address.startsWith("0x") && address.length === 42 && typeof nonce === "number" && nonce >= 0 && typeof yParity === "number" && (yParity === 0 || yParity === 1) && typeof r === "string" && r.startsWith("0x") && r.length === 66 && typeof s === "string" && s.startsWith("0x") && s.length === 66);
+}
+function isValidAmount(amount) {
+  try {
+    const amountBigInt = BigInt(amount);
+    return amountBigInt > 0n;
+  } catch {
+    return false;
   }
-};
+}
+function isValidRecipient(recipient) {
+  return typeof recipient === "string" && recipient.startsWith("0x") && recipient.length === 42;
+}
+
+// src/facilitator/settlement.ts
+async function settlePayment(_walletClient, _payload) {
+  try {
+    const mockTxHash = `0x${Math.random().toString(16).substring(2, 66).padStart(64, "0")}`;
+    await new Promise((resolve) => setTimeout(resolve, 1e3));
+    return {
+      success: true,
+      txHash: mockTxHash,
+      blockNumber: BigInt(12345678)
+    };
+  } catch (error) {
+    console.error("Settlement error:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown settlement error"
+    };
+  }
+}
 
 // src/index.ts
 var X402_BNB_VERSION = 1;
 
-export { AddressSchema, AuthorizationTupleSchema, BatchWitnessMessageSchema, BigIntStringSchema, CommonTokens, Eip712DomainSchema, Erc20Abi, ErrorReason, FacilitatorClient, HexSchema, ImplementationAddresses, NetworkConfigs, NetworkError, NetworkSchema, PaymentDetailsSchema, PaymentImplementationAbi, PaymentItemSchema, PaymentRequiredResponseSchema, PaymentScheme, PaymentSchemeSchema, PaymentValidationError, SignatureError, SignedPaymentPayloadSchema, SupportedNetworks, TransactionError, WitnessMessageSchema, X402BnbError, X402_BNB_VERSION, createEip7702PaymentRequirement, createFacilitatorClient, createPaymentHeader, createPaymentHeaderWithWallet, createPaymentRequired, createPaymentResponse, decodeBase64, encodeBase64, generateAuthNonce, generateNonce, generatePaymentId, getImplementationAddress, isPaymentDetailsSupported, parseBigInt, parsePaymentHeader, prepareAuthorization, prepareBatchWitness, prepareWitness, rlpEncodeAuthorization, selectPaymentDetails, settlePaymentWithFacilitator, signAuthorization, signBatchWitness, signWitness, signWitnessWithWallet, validateAddress, validateAmount, validateBigInt, validateDeadline, validateHex, validatePaymentHeader, verifyAuthorizationSignature, verifyPaymentWithFacilitator };
+export { AddressSchema, AuthorizationTupleSchema, BatchWitnessMessageSchema, BigIntStringSchema, Eip712DomainSchema, Erc20Abi, ErrorReason, FacilitatorClient, HexSchema, NetworkConfigs, NetworkError, NetworkSchema, PaymentDetailsSchema, PaymentImplementationAbi, PaymentItemSchema, PaymentRequiredResponseSchema, PaymentScheme, PaymentSchemeSchema, PaymentValidationError, Q402Error, SignatureError, SignedPaymentPayloadSchema, SupportedNetworks, TransactionError, WitnessMessageSchema, X402_BNB_VERSION, createEip7702PaymentRequirement, createFacilitatorClient, createPaymentHeader, createPaymentHeaderWithWallet, createPaymentRequired, createPaymentResponse, decodeBase64, encodeBase64, generateAuthNonce, generateNonce, generatePaymentId, isPaymentDetailsSupported, parseBigInt, parsePaymentHeader, prepareAuthorization, prepareBatchWitness, prepareWitness, rlpEncodeAuthorization, selectPaymentDetails, settlePayment, settlePaymentWithFacilitator, signAuthorization, signBatchWitness, signWitness, signWitnessWithWallet, validateAddress, validateAmount, validateBigInt, validateDeadline, validateHex, validatePaymentHeader, verifyAuthorizationSignature, verifyPayment, verifyPaymentWithFacilitator };
 //# sourceMappingURL=index.mjs.map
 //# sourceMappingURL=index.mjs.map
