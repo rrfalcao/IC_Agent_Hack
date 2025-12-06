@@ -3,7 +3,9 @@
  * Handles all backend API communication
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// In production (served from same origin), use empty string for relative URLs
+// In development, use localhost:3000
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
 
 /**
  * Get agent information
@@ -168,36 +170,68 @@ export async function checkCredits(address, service) {
 }
 
 /**
- * Buy credits with USDC payment
+ * Request payment info for buying credits (triggers 402)
  * @param {string} userAddress - User's wallet address
  * @param {string} packageId - Package ID (starter, builder, pro)
- * @param {string} paymentHeader - x402 payment header (optional in demo mode)
+ * @returns {Object} Payment info from 402 response
  */
-export async function buyCredits(userAddress, packageId, paymentHeader = null) {
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-Demo-Skip': 'true' // Demo mode
-  };
-  
-  if (paymentHeader) {
-    headers['x-payment'] = paymentHeader;
-  }
-  
+export async function requestCreditsPurchase(userAddress, packageId) {
   const response = await fetch(`${API_URL}/api/credits/buy`, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userAddress, packageId })
+  });
+  
+  if (response.status === 402) {
+    // This is expected - return the payment requirements
+    const paymentInfo = await response.json();
+    return { requiresPayment: true, ...paymentInfo };
+  }
+  
+  // If somehow it succeeded without payment (shouldn't happen in production)
+  if (response.ok) {
+    return { requiresPayment: false, ...(await response.json()) };
+  }
+  
+  throw new Error('Failed to request credits purchase');
+}
+
+/**
+ * Complete credits purchase with signed payment
+ * @param {string} userAddress - User's wallet address
+ * @param {string} packageId - Package ID (starter, builder, pro)
+ * @param {string} paymentHeader - Signed x402 payment header
+ */
+export async function completeCreditsPurchase(userAddress, packageId, paymentHeader) {
+  const response = await fetch(`${API_URL}/api/credits/buy`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-PAYMENT': paymentHeader
+    },
     body: JSON.stringify({ userAddress, packageId })
   });
   
   if (!response.ok) {
-    if (response.status === 402) {
-      const paymentInfo = await response.json();
-      throw { requiresPayment: true, paymentInfo };
-    }
-    throw new Error('Failed to purchase credits');
+    const error = await response.json();
+    throw new Error(error.message || 'Payment verification failed');
   }
   
   return response.json();
+}
+
+/**
+ * Buy credits with USDC payment (legacy - use requestCreditsPurchase + completeCreditsPurchase)
+ * @deprecated Use the two-step flow instead
+ */
+export async function buyCredits(userAddress, packageId, paymentHeader = null) {
+  if (!paymentHeader) {
+    // If no payment header, request payment info (will return 402 data)
+    return requestCreditsPurchase(userAddress, packageId);
+  }
+  
+  // If payment header provided, complete the purchase
+  return completeCreditsPurchase(userAddress, packageId, paymentHeader);
 }
 
 /**
@@ -221,23 +255,6 @@ export async function spendCredits(userAddress, service, permitSignature = null)
     throw new Error('Failed to spend credits');
   }
   
-  return response.json();
-}
-
-/**
- * Award bonus credits (demo mode)
- * @param {string} userAddress - User's wallet address
- * @param {string} amount - Amount of CHIM to award
- * @param {string} reason - Reason for award
- */
-export async function awardCredits(userAddress, amount, reason = 'demo_bonus') {
-  const response = await fetch(`${API_URL}/api/credits/award`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userAddress, amount, reason })
-  });
-  
-  if (!response.ok) throw new Error('Failed to award credits');
   return response.json();
 }
 

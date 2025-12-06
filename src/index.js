@@ -6,6 +6,7 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { cors } from 'hono/cors';
+import { serveStatic } from '@hono/node-server/serve-static';
 import config from './config/index.js';
 import { ChainGPTService } from './services/chaingpt.js';
 import { BlockchainService } from './services/blockchain.js';
@@ -18,6 +19,7 @@ import { ingestion } from './services/ingestion.js';
 import { paymentService } from './services/payment.js';
 import { swapService } from './services/swap.js';
 import { creditsService, CHIM_PRICING } from './services/credits.js';
+import faucetRoutes from './routes/faucet.js';
 
 // Initialize services
 const chaingpt = new ChainGPTService(config.chaingpt.apiKey);
@@ -32,13 +34,16 @@ const app = new Hono();
 // Middleware
 app.use('/*', cors());
 
+// Mount faucet routes (Super Faucet for judge onboarding)
+app.route('/api/faucet', faucetRoutes);
+
 // Q402 Payment middleware for premium endpoints
 // Now only used for buying CHIM credits with USDC
 // Service endpoints use CHIM credits directly
 const q402Middleware = createQ402Middleware({
   network: config.blockchain.chainId === 56 ? 'bsc-mainnet' : 'bsc-testnet',
   recipientAddress: config.payment.recipient,
-  demoMode: config.nodeEnv !== 'production', // Demo mode for non-production
+  demoMode: false, // Demo mode DISABLED - production mode only (no payment skip)
   endpoints: [
     // Only the credits/buy endpoint requires USDT payment
     // All other services now use CHIM credits
@@ -220,16 +225,18 @@ app.post('/api/generate', async (c) => {
       
       console.log('[API] CHIM credits spent for generate:', spendResult);
     } else {
-      // No user address - check for demo header
-      const demoSkip = c.req.header('x-demo-skip') === 'true';
+      // No user address - always require payment (no demo skip in production)
+      // Demo skip is DISABLED by default - judges must use real wallet + CHIM credits
+      const allowDemoSkip = process.env.ALLOW_DEMO_SKIP === 'true';
+      const demoSkip = allowDemoSkip && c.req.header('x-demo-skip') === 'true';
       if (!demoSkip) {
         return c.json({
           error: 'Payment Required',
-          message: 'Please provide userAddress with CHIM credits or use x-demo-skip header',
+          message: 'Please connect wallet and ensure you have CHIM credits',
           pricing: CHIM_PRICING.generate
         }, 402);
       }
-      console.log('[API] Demo skip for generate');
+      console.log('[API] Demo skip for generate (ALLOW_DEMO_SKIP enabled)');
     }
 
     console.log('[API] Generate request:', prompt.substring(0, 100), '| Audit loop:', useAuditLoop);
@@ -307,16 +314,17 @@ app.post('/api/audit', async (c) => {
       
       console.log('[API] CHIM credits spent for audit:', spendResult);
     } else {
-      // No user address - check for demo header
-      const demoSkip = c.req.header('x-demo-skip') === 'true';
+      // No user address - always require payment (no demo skip in production)
+      const allowDemoSkip = process.env.ALLOW_DEMO_SKIP === 'true';
+      const demoSkip = allowDemoSkip && c.req.header('x-demo-skip') === 'true';
       if (!demoSkip) {
         return c.json({
           error: 'Payment Required',
-          message: 'Please provide userAddress with CHIM credits or use x-demo-skip header',
+          message: 'Please connect wallet and ensure you have CHIM credits',
           pricing: CHIM_PRICING.audit
         }, 402);
       }
-      console.log('[API] Demo skip for audit');
+      console.log('[API] Demo skip for audit (ALLOW_DEMO_SKIP enabled)');
     }
 
     let sourceCode = code;
@@ -627,8 +635,9 @@ app.post('/api/contract/create', async (c) => {
       
       console.log('[API] CHIM credits spent for contract/create:', spendResult);
     } else {
-      // No user address - check for demo skip header
-      const demoSkip = c.req.header('x-demo-skip') === 'true';
+      // No user address - always require payment (no demo skip in production)
+      const allowDemoSkip = process.env.ALLOW_DEMO_SKIP === 'true';
+      const demoSkip = allowDemoSkip && c.req.header('x-demo-skip') === 'true';
       if (!demoSkip) {
         return c.json({
           error: 'Payment Required',
@@ -640,7 +649,7 @@ app.post('/api/contract/create', async (c) => {
           }
         }, 402);
       }
-      console.log('[API] Demo skip for contract/create');
+      console.log('[API] Demo skip for contract/create (ALLOW_DEMO_SKIP enabled)');
     }
 
     console.log('[API] Contract creation request:', {
@@ -1625,6 +1634,34 @@ app.post('/api/credits/permit', async (c) => {
   }
 });
 
+// Get approval info for user to approve facilitator
+app.get('/api/credits/approval/:address', async (c) => {
+  try {
+    const address = c.req.param('address');
+    const allowance = await creditsService.getAllowance(address);
+    const status = creditsService.getStatus();
+    
+    return c.json({
+      success: true,
+      ...allowance,
+      contractAddress: status.contractAddress,
+      facilitator: status.facilitator,
+      chainId: status.chainId,
+      instructions: allowance.needsApproval ? {
+        message: 'Please approve the facilitator to spend your CHIM tokens',
+        method: 'Call CHIM.approve(facilitator, amount) from your wallet',
+        example: `await chimContract.approve("${status.facilitator}", ethers.MaxUint256)`
+      } : null
+    });
+  } catch (error) {
+    console.error('[API] Approval check error:', error);
+    return c.json({
+      error: 'Failed to check approval',
+      message: error.message
+    }, 500);
+  }
+});
+
 // Award bonus credits (admin/demo endpoint)
 app.post('/api/credits/award', async (c) => {
   try {
@@ -1937,12 +1974,35 @@ app.post('/api/v2/transfer', async (c) => {
   }
 });
 
-// 404 handler
-app.notFound((c) => {
-  return c.json({
-    error: 'Not Found',
-    message: 'The requested endpoint does not exist'
-  }, 404);
+// =====================================================
+// Static File Serving (Frontend)
+// Serves the built React frontend for production
+// =====================================================
+app.use('/*', serveStatic({ root: './frontend/dist' }));
+
+// 404 handler - serve index.html for SPA routing
+app.notFound(async (c) => {
+  // For API routes, return JSON 404
+  if (c.req.path.startsWith('/api/') || c.req.path.startsWith('/health') || c.req.path.startsWith('/agent')) {
+    return c.json({
+      error: 'Not Found',
+      message: 'The requested endpoint does not exist'
+    }, 404);
+  }
+  
+  // For all other routes, serve index.html (SPA routing)
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const indexPath = path.join(process.cwd(), 'frontend', 'dist', 'index.html');
+    const html = await fs.readFile(indexPath, 'utf-8');
+    return c.html(html);
+  } catch {
+    return c.json({
+      error: 'Not Found',
+      message: 'The requested resource does not exist'
+    }, 404);
+  }
 });
 
 // Error handler

@@ -205,7 +205,10 @@ export function LandingPage({ onNavigate }) {
           {features.map((feature, idx) => (
             <div
               key={idx}
+              role="button"
+              tabIndex={0}
               onClick={feature.action}
+              onKeyDown={(e) => e.key === 'Enter' && feature.action()}
               style={{
                 background: 'rgba(250, 250, 250, 0.05)',
                 backdropFilter: 'blur(10px)',

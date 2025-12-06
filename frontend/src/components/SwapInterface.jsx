@@ -11,6 +11,7 @@ import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
 import { GlassPanel } from './GlassPanel';
 import { useAgentBrain } from '../hooks/useAgentBrain';
+import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
 const DEFAULT_TOKENS = {
   native: { symbol: 'tBNB', name: 'Test BNB', decimals: 18, address: null },
@@ -193,6 +194,16 @@ export function SwapInterface() {
 
         if (!response.ok) {
           throw new Error(responseData.message || 'Swap failed');
+        }
+
+        // Log the swap activity
+        if (userAddress) {
+          logActivity(userAddress, ACTIVITY_TYPES.TOKEN_SWAP, {
+            status: 'success',
+            details: `Swapped ${amountIn} ${DEFAULT_TOKENS[tokenIn]?.symbol} → ${DEFAULT_TOKENS[tokenOut]?.symbol}`,
+            txHash: responseData.txHash,
+            amount: `${amountIn} ${DEFAULT_TOKENS[tokenIn]?.symbol}`
+          });
         }
 
         setSuccess({
@@ -411,9 +422,7 @@ export function SwapInterface() {
         isOpen={showPayment}
         paymentRequest={paymentRequest}
         onPaymentComplete={handlePaymentComplete}
-        onSkip={(paymentId) => handlePaymentComplete(paymentId, null)}
         onCancel={() => setShowPayment(false)}
-        demoMode={true}
       />
 
       {/* Error */}

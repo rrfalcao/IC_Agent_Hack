@@ -1,11 +1,12 @@
 /**
  * CreditBalance Component
  * Displays user's CHIM credit balance and purchase options
+ * Uses proper USDC payment flow - no demo/free options
  */
 
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
-import { getCreditBalance, getCreditPricing, buyCredits, awardCredits } from '../services/api';
+import { getCreditBalance, getCreditPricing, requestCreditsPurchase } from '../services/api';
 
 // CHIM token icon
 const ChimIcon = () => (
@@ -25,14 +26,12 @@ const serviceIcons = {
   chat: '💬'
 };
 
-export default function CreditBalance({ compact = false, onPurchase }) {
+export default function CreditBalance({ compact = false, onPurchase, onNavigateToCredits }) {
   const { address, isConnected } = useAccount();
   const [balance, setBalance] = useState(null);
   const [pricing, setPricing] = useState(null);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [purchasing, setPurchasing] = useState(false);
-  const [showPackages, setShowPackages] = useState(false);
   const [error, setError] = useState(null);
 
   // Fetch balance and pricing on mount
@@ -65,50 +64,11 @@ export default function CreditBalance({ compact = false, onPurchase }) {
     }
   };
 
-  const handleBuyCredits = async (packageId) => {
-    setPurchasing(true);
-    setError(null);
-    
-    try {
-      const result = await buyCredits(address, packageId);
-      
-      if (result.success) {
-        // Refresh balance
-        await fetchData();
-        setShowPackages(false);
-        
-        if (onPurchase) {
-          onPurchase(result);
-        }
-      }
-    } catch (err) {
-      if (err.requiresPayment) {
-        setError('USDC payment required. Please ensure your wallet is connected.');
-      } else {
-        setError('Failed to purchase credits');
-      }
-      console.error('Purchase error:', err);
-    } finally {
-      setPurchasing(false);
-    }
-  };
-
-  const handleGetFreeCredits = async () => {
-    setPurchasing(true);
-    setError(null);
-    
-    try {
-      const result = await awardCredits(address, '50', 'demo_welcome_bonus');
-      
-      if (result.success) {
-        await fetchData();
-        setShowPackages(false);
-      }
-    } catch (err) {
-      setError('Failed to award credits');
-      console.error('Award error:', err);
-    } finally {
-      setPurchasing(false);
+  const handleNavigateToCredits = () => {
+    if (onNavigateToCredits) {
+      onNavigateToCredits();
+    } else {
+      window.location.hash = '#credits';
     }
   };
 
@@ -118,7 +78,7 @@ export default function CreditBalance({ compact = false, onPurchase }) {
     
     return (
       <button
-        onClick={() => setShowPackages(true)}
+        onClick={handleNavigateToCredits}
         className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 
                    border border-amber-500/30 rounded-lg hover:border-amber-400/50 transition-all"
       >
@@ -180,9 +140,6 @@ export default function CreditBalance({ compact = false, onPurchase }) {
                 {balance?.formatted || '0'}
               </div>
               <div className="text-amber-400/60 text-sm">CHIM Credits</div>
-              {balance?.demoMode && (
-                <div className="text-xs text-slate-500 mt-1">Demo Mode</div>
-              )}
             </div>
 
             {/* Service Pricing */}
@@ -206,65 +163,19 @@ export default function CreditBalance({ compact = false, onPurchase }) {
               </div>
             )}
 
-            {/* Purchase Section */}
-            {showPackages ? (
-              <div className="space-y-2">
-                <h4 className="text-xs font-semibold text-slate-400 uppercase">Buy Credits</h4>
-                
-                {packages.map((pkg) => (
-                  <button
-                    key={pkg.id}
-                    onClick={() => handleBuyCredits(pkg.id)}
-                    disabled={purchasing}
-                    className={`w-full p-3 rounded-lg border transition-all text-left
-                      ${pkg.popular 
-                        ? 'bg-amber-500/10 border-amber-500/40 hover:border-amber-400' 
-                        : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
-                      }
-                      ${purchasing ? 'opacity-50 cursor-not-allowed' : ''}
-                    `}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-white">{pkg.name}</span>
-                      {pkg.popular && (
-                        <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded">Popular</span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-400">{pkg.usdcPrice} USDC</span>
-                      <span className="text-amber-400 font-mono">{pkg.chimAmount} CHIM</span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">{pkg.description}</p>
-                  </button>
-                ))}
-
-                {/* Demo: Free credits button */}
-                <button
-                  onClick={handleGetFreeCredits}
-                  disabled={purchasing}
-                  className="w-full p-2 rounded-lg border border-dashed border-green-500/30 
-                             bg-green-500/5 hover:bg-green-500/10 transition-all text-center"
-                >
-                  <span className="text-green-400 text-sm">🎁 Get 50 Free Credits (Demo)</span>
-                </button>
-
-                <button
-                  onClick={() => setShowPackages(false)}
-                  className="w-full text-center text-sm text-slate-500 hover:text-slate-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowPackages(true)}
-                className="w-full py-2 px-4 bg-gradient-to-r from-amber-500 to-orange-500 
-                           text-black font-semibold rounded-lg hover:from-amber-400 hover:to-orange-400 
-                           transition-all"
-              >
-                Buy More Credits
-              </button>
-            )}
+            {/* Buy Credits Button */}
+            <button
+              onClick={handleNavigateToCredits}
+              className="w-full py-2 px-4 bg-gradient-to-r from-amber-500 to-orange-500 
+                         text-black font-semibold rounded-lg hover:from-amber-400 hover:to-orange-400 
+                         transition-all"
+            >
+              Buy Credits with USDC
+            </button>
+            
+            <p className="text-center text-xs text-slate-500 mt-2">
+              1 USDC = 10 CHIM
+            </p>
           </>
         )}
       </div>
@@ -360,7 +271,7 @@ export function CreditGate({ service, children, onInsufficientCredits }) {
           onClick={onInsufficientCredits}
           className="px-4 py-2 bg-amber-500 text-black rounded-lg hover:bg-amber-400"
         >
-          Buy Credits
+          Buy Credits with USDC
         </button>
       </div>
     );
@@ -368,4 +279,3 @@ export function CreditGate({ service, children, onInsufficientCredits }) {
 
   return children;
 }
-

@@ -5,10 +5,13 @@
  */
 
 import { useState } from 'react';
+import { useAccount } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
+import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
 export function ContractIngestor() {
+  const { address: userAddress } = useAccount();
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -32,6 +35,15 @@ export function ContractIngestor() {
 
       if (!response.ok) {
         throw new Error(data.message || 'Analysis failed');
+      }
+
+      // Log the analysis activity
+      if (userAddress) {
+        logActivity(userAddress, ACTIVITY_TYPES.CONTRACT_ANALYZE, {
+          status: 'success',
+          details: `Analyzed contract: ${address}`,
+          contractAddress: address
+        });
       }
 
       setResult(data);

@@ -5,13 +5,19 @@
  * Glass morphism design
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useSignTypedData } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
 import { TransactionPreview } from './TransactionPreview';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
 import { useAgentBrain } from '../hooks/useAgentBrain';
+import { AuditLoopVisualizer } from './AuditLoopVisualizer';
+import { getCreditBalance, checkCredits } from '../services/api';
+import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
+
+// CHIM cost for contract generation
+const GENERATE_COST = 10;
 
 // Flow steps
 const STEPS = {
@@ -42,12 +48,44 @@ export function ContractGenerator() {
   const [generationResult, setGenerationResult] = useState(null);
   const [auditResult, setAuditResult] = useState(null);
   
+  // Audit loop iterations state
+  const [auditIterations, setAuditIterations] = useState([]);
+  const [auditLoopComplete, setAuditLoopComplete] = useState(false);
+  
+  // CHIM balance state
+  const [chimBalance, setChimBalance] = useState(null);
+  const [hasEnoughChim, setHasEnoughChim] = useState(false);
+  const [showConfirmCost, setShowConfirmCost] = useState(false);
+  
   // Deployment state
   const [deployResult, setDeployResult] = useState(null);
   
   const [showCode, setShowCode] = useState(false);
 
-  // Step 1: Request payment for generation (triggers 402)
+  // Fetch CHIM balance when connected
+  useEffect(() => {
+    if (isConnected && address) {
+      fetchChimBalance();
+    } else {
+      setChimBalance(null);
+      setHasEnoughChim(false);
+    }
+  }, [address, isConnected]);
+
+  const fetchChimBalance = async () => {
+    try {
+      const data = await getCreditBalance(address);
+      const balance = parseFloat(data.formatted || '0');
+      setChimBalance(balance);
+      setHasEnoughChim(balance >= GENERATE_COST);
+    } catch (err) {
+      console.error('Failed to fetch CHIM balance:', err);
+      setChimBalance(0);
+      setHasEnoughChim(false);
+    }
+  };
+
+  // Step 1: Show cost confirmation before generation
   const handleStartGeneration = async () => {
     if (!prompt.trim()) {
       setError('Please enter a contract description');
@@ -59,115 +97,212 @@ export function ContractGenerator() {
       return;
     }
 
+    // Show cost confirmation dialog
+    setShowConfirmCost(true);
+  };
+
+  // Step 1b: Actually start generation after cost confirmation
+  const handleConfirmGeneration = async () => {
+    setShowConfirmCost(false);
     setError(null);
 
+    // Check if user has enough CHIM
+    if (!hasEnoughChim) {
+      setError(`Insufficient CHIM credits. You have ${chimBalance} CHIM but need ${GENERATE_COST} CHIM.`);
+      setPaymentRequired({
+        pricing: { amount: `${GENERATE_COST} CHIM`, service: 'generate' },
+        balance: chimBalance?.toString() || '0'
+      });
+      setStep(STEPS.PAYMENT);
+      return;
+    }
+
+    // Proceed directly to generation
+    handlePaymentComplete({ method: 'chim_payment' });
+  };
+
+  // Cancel cost confirmation
+  const handleCancelCostConfirm = () => {
+    setShowConfirmCost(false);
+  };
+
+  // Step 2: After payment is complete, generate contract with Audit Loop visualization
+  const handlePaymentComplete = async (paymentData) => {
+    setStep(STEPS.GENERATING);
+    setAuditIterations([]);
+    setAuditLoopComplete(false);
+    
     try {
-      // Call the endpoint with user's wallet address for CHIM payment
-      const response = await fetch('http://localhost:3000/api/contract/create', {
+      // Use SSE streaming endpoint for real-time audit loop visualization
+      // CHIM credits are checked and spent server-side based on userAddress
+      const response = await fetch('http://localhost:3000/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          autoAudit: true,
-          autoDeploy: false,
-          userAddress: address // Pass wallet address for CHIM credits
+          useAuditLoop: true,
+          userAddress: address // Server will check and spend CHIM credits
         })
       });
 
-      // 402 means insufficient CHIM credits
-      if (response.status === 402) {
-        const paymentData = await response.json();
-        // Show user they need to buy CHIM credits
-        setError(`Insufficient CHIM credits. Required: ${paymentData.pricing?.amount || '10 CHIM'}. Please buy credits first.`);
-        setPaymentRequired(paymentData);
-        setStep(STEPS.PAYMENT);
-      } else if (response.ok) {
-        // If no payment required (demo mode), proceed directly
-        const data = await response.json();
-        if (data.success) {
-          setGenerationResult(data);
-          setAuditResult({
-            score: data.auditScore || 100,
-            passed: (data.auditScore || 100) >= 80,
-            report: data.auditReport || 'No issues found',
-            summary: { criticalIssues: 0, highIssues: 0, mediumIssues: 0, lowIssues: 0, informational: 0 }
-          });
-          setStep(STEPS.PREVIEW);
-        } else {
-          throw new Error(data.message || 'Generation failed');
-        }
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Request failed');
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-    } catch (err) {
-      console.error('Generation request error:', err);
-      setError(err.message);
-    }
-  };
 
-  // Step 2: After payment is complete, generate contract with Brain visualization
-  const handlePaymentComplete = async (paymentData) => {
-    setStep(STEPS.GENERATING);
-    
-    try {
-      // Use the global brain for visualization
-      const result = await brain.runGenerate(async () => {
-        // Build headers
-        const headers = { 'Content-Type': 'application/json' };
-        
-        // Add payment header or demo skip
-        if (paymentData?.paymentHeader) {
-          headers['X-PAYMENT'] = paymentData.paymentHeader;
-        } else {
-          headers['X-Demo-Skip'] = 'true';
+      // Parse SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let currentCode = '';
+      let currentIteration = { attempt: 1, code: '', score: 0, issues: [], fixesApplied: [] };
+      let iterations = [];
+      let finalResult = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              // Handle different event types from audit loop
+              switch (data.type) {
+                case 'attempt':
+                  // New iteration starting
+                  if (currentIteration.code) {
+                    iterations.push({ ...currentIteration });
+                    setAuditIterations([...iterations]);
+                  }
+                  currentIteration = {
+                    attempt: data.attempt,
+                    code: '',
+                    score: 0,
+                    issues: [],
+                    fixesApplied: data.attempt > 1 ? ['Addressing issues from previous iteration'] : []
+                  };
+                  currentCode = '';
+                  break;
+
+                case 'code_chunk':
+                  currentCode += data.data || '';
+                  break;
+
+                case 'code_complete':
+                  currentIteration.code = data.code || currentCode;
+                  break;
+
+                case 'audit_complete':
+                  currentIteration.score = data.score || 0;
+                  // Extract issues from report
+                  if (data.report && data.score < 80) {
+                    currentIteration.issues = extractIssuesFromReport(data.report);
+                  }
+                  iterations.push({ ...currentIteration });
+                  setAuditIterations([...iterations]);
+                  break;
+
+                case 'retry':
+                  // Preparing for next iteration
+                  break;
+
+                case 'success':
+                  setAuditLoopComplete(true);
+                  finalResult = {
+                    contractCode: data.code,
+                    auditScore: data.audit?.score || 100,
+                    auditReport: data.audit?.report || 'Passed',
+                    compiled: null // Will compile separately
+                  };
+                  break;
+
+                case 'failed':
+                  // Max retries reached but still show result
+                  setAuditLoopComplete(true);
+                  finalResult = {
+                    contractCode: data.code,
+                    auditScore: data.audit?.score || 0,
+                    auditReport: data.audit?.report || 'Failed',
+                    compiled: null
+                  };
+                  break;
+
+                case 'error':
+                  throw new Error(data.message || 'Generation failed');
+              }
+            } catch (e) {
+              if (e.message !== 'Generation failed') {
+                console.warn('SSE parse error:', e);
+              } else {
+                throw e;
+              }
+            }
+          }
+        }
+      }
+
+      // If we got a result, compile it
+      if (finalResult) {
+        // Try to compile the contract
+        try {
+          const compileResponse = await fetch('http://localhost:3000/api/compile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code: finalResult.contractCode })
+          });
+          if (compileResponse.ok) {
+            const compileData = await compileResponse.json();
+            if (compileData.success) {
+              finalResult.compiled = compileData;
+            }
+          }
+        } catch (compileErr) {
+          console.warn('Compile error:', compileErr);
         }
 
-        // Generate contract (without auto-deploy)
-        const response = await fetch('http://localhost:3000/api/contract/create', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            prompt,
-            autoAudit: true,
-            autoDeploy: false, // Don't auto-deploy - we need to preview first
-            userAddress: address // Pass wallet address for CHIM credits
-          })
+        setGenerationResult(finalResult);
+        setAuditResult({
+          score: finalResult.auditScore,
+          passed: finalResult.auditScore >= 80,
+          report: finalResult.auditReport,
+          summary: { criticalIssues: 0, highIssues: 0, mediumIssues: 0, lowIssues: 0, informational: 0 }
         });
+        setStep(STEPS.PREVIEW);
+      } else {
+        throw new Error('No result received from generation');
+      }
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (!data.success) {
-          throw new Error(data.message || 'Generation failed');
-        }
-        
-        return data;
-      });
-
-      setGenerationResult(result);
-      setAuditResult({
-        score: result.auditScore || 100,
-        passed: (result.auditScore || 100) >= 80,
-        report: result.auditReport || 'No issues found',
-        summary: {
-          criticalIssues: 0,
-          highIssues: 0,
-          mediumIssues: 0,
-          lowIssues: 0,
-          informational: 0
-        }
-      });
-      setStep(STEPS.PREVIEW);
     } catch (err) {
       console.error('Generation error:', err);
       setError(err.message);
       setStep(STEPS.ERROR);
     }
+  };
+
+  // Helper to extract issues from audit report
+  const extractIssuesFromReport = (report) => {
+    const issues = [];
+    const patterns = [
+      /critical[:\s]+([^\n]+)/gi,
+      /high[:\s]+([^\n]+)/gi,
+      /vulnerability[:\s]+([^\n]+)/gi,
+      /issue[:\s]+([^\n]+)/gi
+    ];
+    for (const pattern of patterns) {
+      const matches = report.matchAll(pattern);
+      for (const match of matches) {
+        if (match[1] && match[1].length < 100) {
+          issues.push(match[1].trim());
+        }
+      }
+    }
+    return issues.slice(0, 5);
   };
 
   // Step 3: Sign and deploy with Brain visualization
@@ -251,6 +386,17 @@ export function ContractGenerator() {
         return responseData;
       });
 
+      // Log the deployment activity
+      if (deployData?.contractAddress && address) {
+        logActivity(address, ACTIVITY_TYPES.CONTRACT_DEPLOY, {
+          status: 'success',
+          details: `Deployed ${generationResult?.compiled?.contractName || 'contract'}: ${prompt.slice(0, 50)}...`,
+          contractAddress: deployData.contractAddress,
+          txHash: deployData.txHash,
+          chimAmount: GENERATE_COST.toString()
+        });
+      }
+      
       setDeployResult(deployData);
       setStep(STEPS.SUCCESS);
     } catch (err) {
@@ -273,8 +419,13 @@ export function ContractGenerator() {
     setPaymentRequired(null);
     setGenerationResult(null);
     setAuditResult(null);
+    setAuditIterations([]);
+    setAuditLoopComplete(false);
     setDeployResult(null);
     setShowCode(false);
+    setShowConfirmCost(false);
+    // Refresh balance after generation
+    fetchChimBalance();
   };
 
   return (
@@ -340,15 +491,160 @@ export function ContractGenerator() {
               }}
             />
             
+            {/* CHIM Cost & Balance Indicator */}
+            {isConnected && (
+              <div style={{ 
+                marginTop: '1rem', 
+                display: 'flex', 
+                justifyContent: 'center',
+                gap: '1.5rem',
+                alignItems: 'center'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  background: 'rgba(251, 191, 36, 0.1)',
+                  border: '1px solid rgba(251, 191, 36, 0.3)',
+                  borderRadius: '8px'
+                }}>
+                  <span style={{ fontSize: '1.2rem' }}>🪙</span>
+                  <span style={{ color: '#fbbf24', fontWeight: '600' }}>Cost: {GENERATE_COST} CHIM</span>
+                </div>
+                
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  background: hasEnoughChim ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  border: `1px solid ${hasEnoughChim ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                  borderRadius: '8px'
+                }}>
+                  <span style={{ 
+                    color: hasEnoughChim ? '#4ade80' : '#f87171',
+                    fontWeight: '600'
+                  }}>
+                    Your Balance: {chimBalance !== null ? chimBalance.toFixed(1) : '...'} CHIM
+                  </span>
+                  {hasEnoughChim ? (
+                    <span style={{ color: '#4ade80' }}>✓</span>
+                  ) : (
+                    <span style={{ color: '#f87171' }}>✗</span>
+                  )}
+                </div>
+              </div>
+            )}
+            
             <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center' }}>
               <CartoonButton
-                label="🚀 Generate Contract"
-                color={isConnected ? 'bg-green-400' : 'bg-gray-400'}
+                label={`🚀 Generate Contract (${GENERATE_COST} CHIM)`}
+                color={isConnected && hasEnoughChim ? 'bg-green-400' : isConnected ? 'bg-amber-400' : 'bg-gray-400'}
                 disabled={!prompt.trim() || !isConnected}
                 onClick={handleStartGeneration}
               />
             </div>
+            
+            {/* Not enough CHIM warning */}
+            {isConnected && !hasEnoughChim && chimBalance !== null && (
+              <div style={{ 
+                marginTop: '0.75rem', 
+                textAlign: 'center',
+                color: '#fbbf24',
+                fontSize: '0.9rem'
+              }}>
+                ⚠️ You need {GENERATE_COST - chimBalance} more CHIM to generate a contract
+              </div>
+            )}
           </div>
+
+          {/* Cost Confirmation Modal */}
+          {showConfirmCost && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(8px)'
+            }}>
+              <GlassPanel
+                variant="modal"
+                hover={false}
+                style={{
+                  maxWidth: '400px',
+                  width: '90%',
+                  padding: '2rem',
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🪙</div>
+                <h3 style={{ color: '#f5f5f5', marginBottom: '0.5rem', fontSize: '1.3rem' }}>
+                  Confirm CHIM Payment
+                </h3>
+                <p style={{ color: '#a3a3a3', marginBottom: '1.5rem' }}>
+                  This will deduct credits from your balance
+                </p>
+                
+                <div style={{
+                  background: 'rgba(251, 191, 36, 0.15)',
+                  border: '1px solid rgba(251, 191, 36, 0.3)',
+                  borderRadius: '12px',
+                  padding: '1.25rem',
+                  marginBottom: '1.5rem'
+                }}>
+                  <div style={{ 
+                    fontSize: '2rem', 
+                    fontWeight: '700', 
+                    color: '#fbbf24',
+                    marginBottom: '0.25rem'
+                  }}>
+                    {GENERATE_COST} CHIM
+                  </div>
+                  <div style={{ color: '#a3a3a3', fontSize: '0.9rem' }}>
+                    for Smart Contract Generation
+                  </div>
+                  
+                  <div style={{
+                    marginTop: '1rem',
+                    paddingTop: '1rem',
+                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.9rem'
+                  }}>
+                    <span style={{ color: '#a3a3a3' }}>Current Balance:</span>
+                    <span style={{ color: '#4ade80', fontWeight: '600' }}>{chimBalance?.toFixed(1)} CHIM</span>
+                  </div>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: '0.9rem',
+                    marginTop: '0.5rem'
+                  }}>
+                    <span style={{ color: '#a3a3a3' }}>After Generation:</span>
+                    <span style={{ color: '#fbbf24', fontWeight: '600' }}>{(chimBalance - GENERATE_COST).toFixed(1)} CHIM</span>
+                  </div>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                  <CartoonButton
+                    label="✓ Confirm & Generate"
+                    color="bg-green-400"
+                    onClick={handleConfirmGeneration}
+                  />
+                  <CartoonButton
+                    label="Cancel"
+                    color="bg-gray-500"
+                    onClick={handleCancelCostConfirm}
+                  />
+                </div>
+              </GlassPanel>
+            </div>
+          )}
 
           {/* Error Display */}
           {error && (
@@ -373,19 +669,23 @@ export function ContractGenerator() {
         </>
       )}
 
-      {/* Step 2: Payment Modal */}
+      {/* Step 2: Insufficient Credits Modal */}
       <PaymentModal
         isOpen={step === STEPS.PAYMENT}
         paymentRequired={paymentRequired}
         onPaymentComplete={handlePaymentComplete}
-        onSkip={() => handlePaymentComplete({ method: 'demo_skip' })}
         onCancel={() => setStep(STEPS.INPUT)}
-        demoMode={true}
       />
 
-      {/* Step 3: Generating */}
+      {/* Step 3: Generating with Audit Loop Visualization */}
       {step === STEPS.GENERATING && (
-        <GeneratingState />
+        <div>
+          <GeneratingState />
+          <AuditLoopVisualizer 
+            iterations={auditIterations}
+            isComplete={auditLoopComplete}
+          />
+        </div>
       )}
 
       {/* Step 4: Preview & Sign */}
@@ -477,25 +777,47 @@ function GeneratingState() {
     <GlassPanel 
       variant="card"
       hover={false}
-      style={{ padding: '3rem', textAlign: 'center' }}
+      style={{ padding: '2rem', textAlign: 'center' }}
     >
-      <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'pulse 2s infinite' }}>🤖</div>
-      <h3 style={{ color: '#86efac', fontSize: '1.5rem', marginBottom: '0.5rem' }}>
-        AI is generating your contract...
-      </h3>
-      <p style={{ color: '#a3a3a3', marginBottom: '2rem' }}>
-        This may take 10-15 seconds
-      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ fontSize: '2.5rem', animation: 'pulse 2s infinite' }}>🤖</div>
+        <div style={{ textAlign: 'left' }}>
+          <h3 style={{ color: '#86efac', fontSize: '1.3rem', margin: 0 }}>
+            AI is generating your contract
+          </h3>
+          <p style={{ color: '#a3a3a3', margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>
+            Self-correcting audit loop in progress...
+          </p>
+        </div>
+      </div>
       
-      <div style={{ maxWidth: '400px', margin: '0 auto', textAlign: 'left' }}>
-        <div style={{ marginBottom: '1rem', color: '#d4d4d4', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ animation: 'pulse 1s infinite' }}>⚙️</span> Generating Solidity code...
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        gap: '2rem',
+        padding: '1rem',
+        background: 'rgba(255,255,255,0.02)',
+        borderRadius: '12px',
+        marginTop: '1rem'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem', animation: 'pulse 1s infinite' }}>⚙️</div>
+          <div style={{ color: '#a3a3a3', fontSize: '0.75rem' }}>Generate</div>
         </div>
-        <div style={{ marginBottom: '1rem', color: '#d4d4d4', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>🔍</span> Running security audit...
+        <div style={{ color: '#525252', display: 'flex', alignItems: 'center' }}>→</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>🔍</div>
+          <div style={{ color: '#a3a3a3', fontSize: '0.75rem' }}>Audit</div>
         </div>
-        <div style={{ marginBottom: '1rem', color: '#d4d4d4', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>📦</span> Compiling to bytecode...
+        <div style={{ color: '#525252', display: 'flex', alignItems: 'center' }}>→</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>🔄</div>
+          <div style={{ color: '#a3a3a3', fontSize: '0.75rem' }}>Improve</div>
+        </div>
+        <div style={{ color: '#525252', display: 'flex', alignItems: 'center' }}>→</div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>✅</div>
+          <div style={{ color: '#a3a3a3', fontSize: '0.75rem' }}>Pass</div>
         </div>
       </div>
     </GlassPanel>

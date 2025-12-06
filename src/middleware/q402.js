@@ -362,7 +362,7 @@ export function createQ402Middleware(middlewareConfig) {
     network = 'bsc-testnet', 
     recipientAddress, 
     endpoints, 
-    demoMode = true,
+    demoMode = false, // Default to production mode - no demo skip allowed
     preferEip7702 = true 
   } = middlewareConfig;
   

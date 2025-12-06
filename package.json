@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "build": "cd frontend && npm ci && npm run build",
+    "build:frontend": "cd frontend && npm run build",
     "test": "node scripts/test-backend.js",
     "test:e2e": "node scripts/test-e2e.js",
     "check-balance": "node check-balance.js",

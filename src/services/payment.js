@@ -44,7 +44,8 @@ export class PaymentService {
   constructor() {
     this.chainId = config.blockchain?.chainId || 97;
     this.facilitatorAddress = config.blockchain?.facilitatorAddress;
-    this.demoMode = process.env.DEMO_MODE === 'true' || true; // Default to demo mode
+    // Demo mode ONLY enabled if explicitly set - defaults to production mode
+    this.demoMode = process.env.DEMO_MODE === 'true';
     
     console.log('[Payment] Service initialized:', {
       chainId: this.chainId,

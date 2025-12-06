@@ -11,6 +11,7 @@ import { PaymentModal } from './PaymentModal';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
 import AgentIdentityBadge from './AgentIdentityBadge';
 import { useAgentBrain } from '../hooks/useAgentBrain';
+import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
 export function ContractAuditor() {
   const { address: userAddress, isConnected } = useAccount();
@@ -42,9 +43,8 @@ export function ContractAuditor() {
         // Add payment header or demo skip
         if (paymentData?.paymentHeader) {
           headers['X-PAYMENT'] = paymentData.paymentHeader;
-        } else {
-          headers['X-Demo-Skip'] = 'true';
         }
+        // CHIM credits are checked server-side based on userAddress
 
         const body = mode === 'code' 
           ? { code } 
@@ -64,6 +64,17 @@ export function ContractAuditor() {
 
         return data;
       });
+
+      // Log the audit activity
+      if (auditResult && userAddress) {
+        logActivity(userAddress, ACTIVITY_TYPES.CONTRACT_AUDIT, {
+          status: 'success',
+          details: mode === 'code' 
+            ? `Audited code snippet (${code.length} chars)` 
+            : `Audited contract: ${contractAddress}`,
+          contractAddress: mode === 'address' ? contractAddress : null
+        });
+      }
 
       setResult(auditResult);
 
@@ -411,9 +422,7 @@ contract MyContract {
         isOpen={showPayment}
         paymentRequired={paymentRequired}
         onPaymentComplete={handlePaymentComplete}
-        onSkip={() => handlePaymentComplete({ method: 'demo_skip' })}
         onCancel={() => setShowPayment(false)}
-        demoMode={true}
       />
     </div>
   );

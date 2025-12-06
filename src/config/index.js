@@ -69,7 +69,8 @@ export const config = {
     // Exchange rate: 1 USDC = 10 CHIM
     exchangeRate: parseInt(process.env.CHIM_EXCHANGE_RATE || '10'),
     // Demo mode: if true, credits are tracked in-memory (no contract needed)
-    demoMode: process.env.CHIM_DEMO_MODE !== 'false',
+    // Default is FALSE (production mode) - must explicitly set CHIM_DEMO_MODE=true to enable
+    demoMode: process.env.CHIM_DEMO_MODE === 'true',
     // Service pricing in CHIM tokens
     pricing: {
       generate: process.env.CHIM_PRICE_GENERATE || '10',    // 10 CHIM
@@ -96,10 +97,10 @@ export const config = {
   
   // Q402 Payment Configuration
   payment: {
-    // Token addresses per network
+    // Token addresses per network (USDC/USDT for payments)
     tokens: {
       56: '0x55d398326f99059fF775485246999027B3197955',  // BSC Mainnet USDT
-      97: '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'   // BSC Testnet USDT
+      97: process.env.USDC_TOKEN_ADDRESS || '0x7fe8B20C81B705Bb156B389Da3800d984A603F32'   // BSC Testnet MockUSDC
     },
     // Get token for current network
     get token() {

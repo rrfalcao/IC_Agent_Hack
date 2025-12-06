@@ -1,74 +1,55 @@
 /**
  * CreditsPage Component
- * Full page for managing CHIM credits - view balance, buy, and track usage
+ * Full-panel view for CHIM credits - fills the available space
+ * Colorful service icons + prominent buy buttons
  */
 
 import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useSignTypedData } from 'wagmi';
 import { 
   getCreditBalance, 
   getCreditPricing, 
-  buyCredits, 
-  awardCredits 
+  requestCreditsPurchase,
+  completeCreditsPurchase
 } from '../services/api';
+import OnboardingButton from './OnboardingButton';
+import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
-// CHIM token icon
-const ChimIcon = ({ className = "w-6 h-6" }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className} stroke="currentColor" strokeWidth="2">
-    <circle cx="12" cy="12" r="10" className="stroke-amber-400" />
-    <path d="M12 6v12M8 10l4-4 4 4M8 14l4 4 4-4" className="stroke-amber-400" />
+// CHIM icon
+const ChimIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="2.5">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v10M9 10l3-3 3 3M9 14l3 3 3-3" />
   </svg>
 );
 
-// Service configuration with colors and icons
-const SERVICES = {
-  generate: {
-    icon: '⚙️',
-    name: 'Contract Generation',
-    description: 'Generate smart contracts from natural language',
-    color: 'emerald'
-  },
-  audit: {
-    icon: '🔍',
-    name: 'Security Audit',
-    description: 'Analyze contracts for vulnerabilities',
-    color: 'amber'
-  },
-  analyze: {
-    icon: '📊',
-    name: 'Contract Analysis',
-    description: 'Deep-dive into deployed contracts',
-    color: 'cyan'
-  },
-  swap: {
-    icon: '🔄',
-    name: 'Token Swap',
-    description: 'Execute swaps via PancakeSwap',
-    color: 'purple'
-  },
-  transfer: {
-    icon: '💸',
-    name: 'Gas-Sponsored Transfer',
-    description: 'Transfer tokens without paying gas',
-    color: 'pink'
-  },
-  chat: {
-    icon: '💬',
-    name: 'AI Chat',
-    description: 'Get Web3 advice from AI',
-    color: 'blue'
-  }
+// Static service config with inline colors
+const getServiceStyle = (service) => {
+  const styles = {
+    generate: { icon: '⚡', dotColor: '#10b981', textColor: '#34d399', name: 'Generate' },
+    audit: { icon: '🛡️', dotColor: '#f59e0b', textColor: '#fbbf24', name: 'Audit' },
+    analyze: { icon: '📈', dotColor: '#06b6d4', textColor: '#22d3ee', name: 'Analyze' },
+    swap: { icon: '🔄', dotColor: '#8b5cf6', textColor: '#a78bfa', name: 'Swap' },
+    transfer: { icon: '💎', dotColor: '#ec4899', textColor: '#f472b6', name: 'Transfer' },
+    chat: { icon: '💬', dotColor: '#3b82f6', textColor: '#60a5fa', name: 'Chat' }
+  };
+  return styles[service] || { icon: '•', dotColor: '#6b7280', textColor: '#9ca3af', name: service };
 };
 
 export default function CreditsPage() {
   const { address, isConnected } = useAccount();
+  const { signTypedDataAsync } = useSignTypedData();
   const [balance, setBalance] = useState(null);
   const [pricing, setPricing] = useState(null);
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
-  const [purchaseResult, setPurchaseResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
+  
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState(null);
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [signing, setSigning] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -76,294 +57,483 @@ export default function CreditsPage() {
 
   const fetchData = async () => {
     setLoading(true);
-    setError(null);
-
     try {
       const pricingData = await getCreditPricing();
       setPricing(pricingData.pricing);
       setPackages(pricingData.packages || []);
-
       if (isConnected && address) {
         const balanceData = await getCreditBalance(address);
         setBalance(balanceData);
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
-      setError('Failed to load credit information');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBuyCredits = async (packageId) => {
-    if (!isConnected) {
-      setError('Please connect your wallet first');
-      return;
-    }
-
+  const handleBuyCredits = async (pkg) => {
+    if (!isConnected) return;
     setPurchasing(true);
-    setPurchaseResult(null);
-    setError(null);
-
+    setMessage(null);
+    
     try {
-      const result = await buyCredits(address, packageId);
-      
-      if (result.success) {
-        setPurchaseResult({
-          type: 'success',
-          message: `Successfully purchased ${result.amount || result.chimAmount} CHIM!`,
-          details: result
-        });
-        await fetchData(); // Refresh balance
+      const result = await requestCreditsPurchase(address, pkg.id);
+      if (result.requiresPayment) {
+        setPaymentInfo(result);
+        setSelectedPackage(pkg);
+        setShowPaymentModal(true);
       }
-    } catch (err) {
-      console.error('Purchase failed:', err);
-      setError(err.requiresPayment 
-        ? 'Payment required - connect wallet to pay with USDC'
-        : 'Failed to purchase credits');
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to initiate purchase' });
     } finally {
       setPurchasing(false);
     }
   };
 
-  const handleClaimFreeCredits = async () => {
-    if (!isConnected) {
-      setError('Please connect your wallet first');
-      return;
-    }
-
-    setPurchasing(true);
-    setPurchaseResult(null);
-
+  const handleConfirmPayment = async () => {
+    if (!paymentInfo || !selectedPackage) return;
+    setSigning(true);
+    setMessage(null);
+    
     try {
-      const result = await awardCredits(address, '100', 'welcome_bonus');
+      const paymentDetails = paymentInfo.accepts?.[0];
+      if (!paymentDetails?.witness) throw new Error('Invalid payment details');
+      
+      const witnessData = paymentDetails.witness;
+      const signature = await signTypedDataAsync({
+        domain: {
+          name: witnessData.domain.name,
+          version: witnessData.domain.version,
+          chainId: witnessData.domain.chainId
+        },
+        types: witnessData.types,
+        primaryType: witnessData.primaryType,
+        message: { ...witnessData.message, owner: address }
+      });
+      
+      const paymentPayload = {
+        witnessSignature: signature,
+        paymentDetails: {
+          ...paymentDetails,
+          witness: { ...paymentDetails.witness, message: { ...paymentDetails.witness.message, owner: address } }
+        }
+      };
+      const paymentHeader = btoa(JSON.stringify(paymentPayload));
+      const result = await completeCreditsPurchase(address, selectedPackage.id, paymentHeader);
       
       if (result.success) {
-        setPurchaseResult({
-          type: 'success',
-          message: '🎉 100 CHIM credits claimed! Welcome to Chimera!',
-          details: result
+        // Log the purchase activity
+        logActivity(address, ACTIVITY_TYPES.CREDITS_PURCHASE, {
+          status: 'success',
+          details: `Purchased ${selectedPackage.name}: ${selectedPackage.chimAmount} CHIM for $${selectedPackage.usdcPrice}`,
+          chimAmount: selectedPackage.chimAmount,
+          amount: `$${selectedPackage.usdcPrice} USDC`,
+          txHash: result.txHash
         });
+        
+        setMessage({ type: 'success', text: `✓ Got ${selectedPackage.chimAmount} CHIM!` });
+        setShowPaymentModal(false);
+        setPaymentInfo(null);
+        setSelectedPackage(null);
         await fetchData();
       }
     } catch (err) {
-      console.error('Claim failed:', err);
-      setError('Failed to claim free credits');
+      setMessage({ type: 'error', text: err.message?.includes('rejected') ? 'Cancelled' : 'Failed' });
     } finally {
-      setPurchasing(false);
+      setSigning(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-amber-400 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-slate-400">Loading credits...</p>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
+        <div style={{ 
+          width: 32, height: 32, 
+          border: '3px solid #fbbf24', 
+          borderTopColor: 'transparent', 
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <ChimIcon className="w-10 h-10" />
-          <h1 className="text-3xl font-bold text-amber-400">CHIM Credits</h1>
-        </div>
-        <p className="text-slate-400">
-          The currency powering Chimera AI services
-        </p>
-      </div>
+    <div style={{ 
+      width: '100%',
+      maxWidth: '1100px', 
+      margin: '0 auto', 
+      padding: '0 20px',
+      minHeight: 'calc(100vh - 200px)',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      {/* Super Faucet for Judges/Demo - Only shows when wallet connected */}
+      <OnboardingButton />
 
-      {/* Error/Success Messages */}
-      {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-center">
-          {error}
+      {/* Header Row */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between', 
+        marginBottom: '24px',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <ChimIcon size={36} />
+          <h1 style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#fbbf24', margin: 0 }}>Credits</h1>
         </div>
-      )}
-      
-      {purchaseResult && (
-        <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg text-green-400 text-center">
-          {purchaseResult.message}
-        </div>
-      )}
-
-      {/* Balance Card */}
-      <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 rounded-2xl border border-amber-500/30 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-medium text-amber-400/80 uppercase tracking-wider mb-1">
-              Your Balance
-            </h2>
-            {isConnected ? (
-              <>
-                <div className="text-5xl font-bold text-white font-mono">
-                  {balance?.formatted || '0'}
-                </div>
-                <div className="text-amber-400/60 mt-1">CHIM Credits</div>
-                {balance?.demoMode && (
-                  <span className="inline-block mt-2 px-2 py-1 bg-slate-700 rounded text-xs text-slate-400">
-                    Demo Mode
-                  </span>
-                )}
-              </>
-            ) : (
-              <div className="text-2xl text-slate-500">Connect wallet to view</div>
-            )}
-          </div>
-          
-          {isConnected && (
-            <button
-              onClick={handleClaimFreeCredits}
-              disabled={purchasing}
-              className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white 
-                         rounded-lg hover:from-green-400 hover:to-emerald-400 
-                         disabled:opacity-50 transition-all"
-            >
-              🎁 Claim Free Credits
-            </button>
+        
+        {/* Balance Box */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          background: 'linear-gradient(to right, rgba(245,158,11,0.15), rgba(249,115,22,0.15))',
+          borderRadius: '14px',
+          border: '1px solid rgba(245,158,11,0.4)',
+          padding: '12px 24px'
+        }}>
+          {isConnected ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '2rem', fontWeight: 'bold', color: 'white', fontFamily: 'monospace' }}>
+                {balance?.formatted || '0'}
+              </span>
+              <span style={{ color: '#fbbf24', fontSize: '1rem', fontWeight: '600' }}>CHIM</span>
+            </div>
+          ) : (
+            <span style={{ color: '#94a3b8', fontSize: '1rem' }}>Connect wallet to view balance</span>
           )}
         </div>
       </div>
 
-      {/* Service Pricing Grid */}
-      <div>
-        <h2 className="text-xl font-semibold text-white mb-4">Service Costs</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {pricing && Object.entries(pricing).map(([service, info]) => {
-            const serviceConfig = SERVICES[service] || { icon: '•', name: service, color: 'slate' };
-            
-            return (
-              <div
-                key={service}
-                className={`p-4 rounded-xl border bg-slate-800/50
-                           border-${serviceConfig.color}-500/30 hover:border-${serviceConfig.color}-500/50
-                           transition-all`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">{serviceConfig.icon}</span>
-                  <span className="font-medium text-white">{serviceConfig.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ChimIcon className="w-4 h-4" />
-                  <span className="text-2xl font-bold text-amber-400 font-mono">
+      {/* Message */}
+      {message && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px 16px',
+          borderRadius: '10px',
+          fontSize: '0.9rem',
+          textAlign: 'center',
+          background: message.type === 'success' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+          color: message.type === 'success' ? '#4ade80' : '#f87171'
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      {/* Main Grid - Flex grow to fill space */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: '1fr 1.5fr', 
+        gap: '20px',
+        flex: 1,
+        minHeight: '350px'
+      }}>
+        
+        {/* Service Costs - Left Column */}
+        <div style={{
+          background: 'rgba(51,65,85,0.5)',
+          borderRadius: '16px',
+          border: '1px solid rgba(71,85,105,0.6)',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <h2 style={{ 
+            fontSize: '0.85rem', 
+            fontWeight: '600', 
+            color: '#94a3b8', 
+            marginBottom: '16px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em'
+          }}>Service Costs</h2>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', flex: 1 }}>
+            {pricing && Object.entries(pricing).map(([service, info]) => {
+              const style = getServiceStyle(service);
+              return (
+                <div key={service} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  background: 'rgba(71,85,105,0.5)',
+                  borderRadius: '10px',
+                  transition: 'all 0.2s'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '50%',
+                      backgroundColor: style.dotColor,
+                      boxShadow: `0 0 8px ${style.dotColor}40`
+                    }}></span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: '600', color: style.textColor }}>
+                      {style.name}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', fontFamily: 'monospace' }}>
                     {info.amount}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">{serviceConfig.description}</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          
+          <div style={{ 
+            marginTop: '16px', 
+            paddingTop: '16px', 
+            borderTop: '1px solid rgba(71,85,105,0.6)', 
+            textAlign: 'center' 
+          }}>
+            <span style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: '500' }}>
+              Exchange Rate: <span style={{ color: '#fbbf24' }}>1 USDC = 10 CHIM</span>
+            </span>
+          </div>
         </div>
-      </div>
 
-      {/* Purchase Packages */}
-      <div>
-        <h2 className="text-xl font-semibold text-white mb-4">Buy Credits</h2>
-        <div className="grid md:grid-cols-3 gap-4">
-          {packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              className={`relative p-6 rounded-xl border-2 transition-all
-                ${pkg.popular 
-                  ? 'bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/50' 
-                  : 'bg-slate-800/50 border-slate-700 hover:border-slate-600'
-                }`}
-            >
-              {pkg.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-3 py-1 bg-amber-500 text-black text-xs font-bold rounded-full">
-                    POPULAR
+        {/* Buy Packages - Right Column */}
+        <div style={{
+          background: 'rgba(51,65,85,0.5)',
+          borderRadius: '16px',
+          border: '1px solid rgba(71,85,105,0.6)',
+          padding: '20px',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <h2 style={{ 
+            fontSize: '0.85rem', 
+            fontWeight: '600', 
+            color: '#94a3b8', 
+            marginBottom: '16px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em'
+          }}>Buy Credits</h2>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', flex: 1 }}>
+            {packages.map((pkg) => (
+              <button
+                key={pkg.id}
+                onClick={() => handleBuyCredits(pkg)}
+                disabled={purchasing || !isConnected}
+                style={{
+                  position: 'relative',
+                  padding: '24px 16px',
+                  borderRadius: '14px',
+                  border: pkg.popular ? '2px solid rgba(245,158,11,0.7)' : '2px solid rgba(71,85,105,0.5)',
+                  background: pkg.popular 
+                    ? 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.25))' 
+                    : 'rgba(71,85,105,0.4)',
+                  cursor: purchasing || !isConnected ? 'not-allowed' : 'pointer',
+                  opacity: purchasing || !isConnected ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  minHeight: '180px'
+                }}
+                onMouseEnter={(e) => {
+                  if (!purchasing && isConnected) {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 12px 24px rgba(0,0,0,0.3)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {pkg.popular && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-10px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    padding: '4px 12px',
+                    background: '#f59e0b',
+                    color: 'black',
+                    fontSize: '0.7rem',
+                    fontWeight: 'bold',
+                    borderRadius: '12px',
+                    letterSpacing: '0.05em'
+                  }}>POPULAR</span>
+                )}
+                
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <ChimIcon size={24} />
+                  <span style={{ fontSize: '1.75rem', fontWeight: 'bold', color: '#fbbf24', fontFamily: 'monospace' }}>
+                    {pkg.chimAmount}
                   </span>
                 </div>
-              )}
-              
-              <h3 className="text-xl font-bold text-white mb-1">{pkg.name}</h3>
-              <p className="text-sm text-slate-400 mb-4">{pkg.description}</p>
-              
-              <div className="flex items-baseline gap-1 mb-2">
-                <span className="text-3xl font-bold text-white">${pkg.usdcPrice}</span>
-                <span className="text-slate-500">USDC</span>
-              </div>
-              
-              <div className="flex items-center gap-2 text-amber-400 mb-4">
-                <ChimIcon className="w-5 h-5" />
-                <span className="text-xl font-mono">{pkg.chimAmount} CHIM</span>
-              </div>
-              
-              <p className="text-xs text-slate-500 mb-4">{pkg.services}</p>
-              
-              {pkg.bonus && (
-                <div className="mb-4 px-2 py-1 bg-green-500/20 rounded text-green-400 text-xs inline-block">
-                  ✨ {pkg.bonus}
+                
+                <div style={{ 
+                  fontSize: '1rem', 
+                  fontWeight: '600', 
+                  color: pkg.popular ? 'white' : '#e2e8f0',
+                  marginBottom: '16px'
+                }}>
+                  {pkg.name.replace(' Pack', '')}
                 </div>
-              )}
-              
+                
+                <div style={{
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  fontSize: '1.1rem',
+                  fontWeight: 'bold',
+                  background: pkg.popular ? '#f59e0b' : '#475569',
+                  color: pkg.popular ? 'black' : 'white',
+                  width: '100%',
+                  maxWidth: '120px'
+                }}>
+                  ${pkg.usdcPrice}
+                </div>
+                
+                {pkg.bonus && (
+                  <div style={{ fontSize: '0.8rem', color: '#4ade80', marginTop: '10px', fontWeight: '500' }}>
+                    {pkg.bonus}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Footer Info */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        gap: '32px',
+        fontSize: '0.8rem',
+        color: '#94a3b8',
+        marginTop: '24px',
+        paddingTop: '16px',
+        borderTop: '1px solid rgba(71,85,105,0.3)'
+      }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 8px #22c55e40' }}></span>
+          Gasless payments
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#06b6d4', boxShadow: '0 0 8px #06b6d440' }}></span>
+          x402 Protocol
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 8px #f59e0b40' }}></span>
+          Instant credits
+        </span>
+      </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && paymentInfo && selectedPackage && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.85)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#0f172a',
+            border: '1px solid #334155',
+            borderRadius: '20px',
+            maxWidth: '400px',
+            width: '100%',
+            padding: '28px',
+            boxShadow: '0 25px 50px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div style={{ fontSize: '2.5rem', marginBottom: '10px' }}>💳</div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', margin: 0 }}>Confirm Payment</h2>
+            </div>
+            
+            <div style={{
+              background: 'rgba(51,65,85,0.5)',
+              border: '1px solid #334155',
+              borderRadius: '14px',
+              padding: '20px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ color: '#94a3b8', fontSize: '1rem' }}>Pay:</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'white' }}>${selectedPackage.usdcPrice} USDC</span>
+              </div>
+              <div style={{ borderTop: '1px solid #334155', margin: '12px 0' }}></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#94a3b8', fontSize: '1rem' }}>Get:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <ChimIcon size={20} />
+                  <span style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#fbbf24' }}>{selectedPackage.chimAmount} CHIM</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
               <button
-                onClick={() => handleBuyCredits(pkg.id)}
-                disabled={purchasing || !isConnected}
-                className={`w-full py-3 rounded-lg font-semibold transition-all
-                  ${pkg.popular
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400'
-                    : 'bg-slate-700 text-white hover:bg-slate-600'
-                  }
-                  disabled:opacity-50 disabled:cursor-not-allowed`}
+                onClick={() => { setShowPaymentModal(false); setPaymentInfo(null); setSelectedPackage(null); }}
+                disabled={signing}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: '#475569',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '1rem',
+                  fontWeight: '500',
+                  cursor: signing ? 'not-allowed' : 'pointer',
+                  opacity: signing ? 0.5 : 1
+                }}
               >
-                {purchasing ? 'Processing...' : `Buy for $${pkg.usdcPrice}`}
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPayment}
+                disabled={signing}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: 'linear-gradient(to right, #f59e0b, #ea580c)',
+                  color: 'black',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  cursor: signing ? 'not-allowed' : 'pointer',
+                  opacity: signing ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px'
+                }}
+              >
+                {signing ? '...' : '✍️ Sign & Pay'}
               </button>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* How It Works */}
-      <div className="bg-slate-800/30 rounded-xl border border-slate-700 p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">How CHIM Credits Work</h2>
-        
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">1️⃣</span>
-            </div>
-            <h3 className="font-medium text-white mb-1">Buy Credits</h3>
-            <p className="text-sm text-slate-400">
-              Purchase CHIM with USDC via x402 payment protocol
-            </p>
-          </div>
-          
-          <div className="text-center">
-            <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">2️⃣</span>
-            </div>
-            <h3 className="font-medium text-white mb-1">Use Services</h3>
-            <p className="text-sm text-slate-400">
-              Spend credits on AI-powered blockchain services
-            </p>
-          </div>
-          
-          <div className="text-center">
-            <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
-              <span className="text-2xl">3️⃣</span>
-            </div>
-            <h3 className="font-medium text-white mb-1">Gasless Spending</h3>
-            <p className="text-sm text-slate-400">
-              Sign with ERC20Permit - no gas fees for you!
+            
+            <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#64748b', marginTop: '16px' }}>
+              No gas fees • Gasless x402 Protocol
             </p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Exchange Rate Info */}
-      <div className="text-center text-sm text-slate-500">
-        <p>Exchange Rate: 1 USDC = 10 CHIM</p>
-        <p className="mt-1">
-          CHIM is a fungible service token issued on the x402 Market
-        </p>
-      </div>
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
-

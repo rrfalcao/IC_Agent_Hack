@@ -126,13 +126,12 @@ export function useAgentStats() {
         }
       }
 
-      // If no real data, use fallback values based on current block activity
-      // This ensures we always show something meaningful
-      const audits = totalTransfers > 0 ? totalTransfers : Math.floor(Math.random() * 20) + 30;
-      const valueStr = totalValue > 0 ? formatValue(totalValue.toString()) : '$' + (Math.random() * 2 + 0.5).toFixed(1) + 'M';
+      // Use real on-chain data only - no simulated values
+      const audits = totalTransfers;
+      const valueStr = totalValue > 0 ? formatValue(totalValue.toString()) : '$0';
       const lastActiveStr = lastTimestamp > 0 
         ? formatTimeAgo(lastTimestamp) 
-        : formatTimeAgo(Math.floor(Date.now() / 1000) - Math.floor(Math.random() * 300)); // 0-5 mins ago
+        : 'No activity yet';
 
       setStats({
         totalAudits: audits,
@@ -145,11 +144,11 @@ export function useAgentStats() {
     } catch (err) {
       console.error('[useAgentStats] Error fetching stats:', err);
       
-      // On error, show simulated stats rather than nothing
+      // On error, show error state - no fake/simulated data
       setStats({
-        totalAudits: 42,
-        valueSecured: '$1.2M',
-        lastActive: '2 mins ago',
+        totalAudits: 0,
+        valueSecured: '$0',
+        lastActive: 'Unable to fetch',
         loading: false,
         error: err.message
       });

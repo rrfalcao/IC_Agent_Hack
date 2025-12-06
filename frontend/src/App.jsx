@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
 import { Waves } from './components/Waves';
 import { LandingPage } from './components/LandingPage';
 import { WalletStatus } from './components/WalletStatus';
-import { CreditCostBadge } from './components/CreditBalance';
+// Credit badges removed from navigation - only shown in Credits page
 import { ChatInterface } from './components/ChatInterface';
 import { ContractGenerator } from './components/ContractGenerator';
 import { ContractIngestor } from './components/ContractIngestor';
@@ -18,6 +18,8 @@ import CreditsPage from './components/CreditsPage';
 import { CartoonButton } from './components/CartoonButton';
 import AgentIdentityBadge from './components/AgentIdentityBadge';
 import { AgentBrain } from './components/AgentBrain';
+import { NetworkToggle } from './components/NetworkToggle';
+import { TransactionHistory } from './components/TransactionHistory';
 import { getAgentInfo } from './services/api';
 import './App.css';
 
@@ -25,6 +27,7 @@ function App() {
   const [agentInfo, setAgentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState('landing'); // 'landing', 'chat', 'generate', 'audit', 'ingest', 'swap', 'transfer', 'credits'
+  const [transactions, setTransactions] = useState([]); // Transaction history log
 
   useEffect(() => {
     // Fetch agent info on mount
@@ -36,6 +39,15 @@ function App() {
 
   const handleNavigate = (page) => {
     setCurrentPage(page);
+  };
+
+  // Add transaction to history log
+  const addTransaction = (tx) => {
+    setTransactions(prev => [...prev, {
+      ...tx,
+      id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      timestamp: Date.now()
+    }]);
   };
 
   // Landing Page
@@ -103,6 +115,9 @@ function App() {
             </button>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+              {/* Network Toggle - Testnet/Mainnet (Required for Bounty #2) */}
+              <NetworkToggle compact />
+              
               {/* Wallet Status with CHIM Balance */}
               <WalletStatus onNavigate={handleNavigate} />
               
@@ -152,46 +167,31 @@ function App() {
             color={currentPage === 'chat' ? 'bg-blue-400' : 'bg-gray-500'}
             onClick={() => handleNavigate('chat')}
           />
-          <div className="relative">
-            <CartoonButton
-              label="🏗️ Generate"
-              color={currentPage === 'generate' ? 'bg-green-400' : 'bg-gray-500'}
-              onClick={() => handleNavigate('generate')}
-            />
-            <CreditCostBadge service="generate" className="absolute -top-2 -right-2 scale-75" />
-          </div>
-          <div className="relative">
-            <CartoonButton
-              label="🛡️ Audit"
-              color={currentPage === 'audit' ? 'bg-amber-400' : 'bg-gray-500'}
-              onClick={() => handleNavigate('audit')}
-            />
-            <CreditCostBadge service="audit" className="absolute -top-2 -right-2 scale-75" />
-          </div>
-          <div className="relative">
-            <CartoonButton
-              label="🔍 Analyze"
-              color={currentPage === 'ingest' ? 'bg-cyan-400' : 'bg-gray-500'}
-              onClick={() => handleNavigate('ingest')}
-            />
-            <CreditCostBadge service="analyze" className="absolute -top-2 -right-2 scale-75" />
-          </div>
-          <div className="relative">
-            <CartoonButton
-              label="🔄 Swap"
-              color={currentPage === 'swap' ? 'bg-purple-400' : 'bg-gray-500'}
-              onClick={() => handleNavigate('swap')}
-            />
-            <CreditCostBadge service="swap" className="absolute -top-2 -right-2 scale-75" />
-          </div>
-          <div className="relative">
-            <CartoonButton
-              label="💸 Transfer"
-              color={currentPage === 'transfer' ? 'bg-pink-400' : 'bg-gray-500'}
-              onClick={() => handleNavigate('transfer')}
-            />
-            <CreditCostBadge service="transfer" className="absolute -top-2 -right-2 scale-75" />
-          </div>
+          <CartoonButton
+            label="🏗️ Generate"
+            color={currentPage === 'generate' ? 'bg-green-400' : 'bg-gray-500'}
+            onClick={() => handleNavigate('generate')}
+          />
+          <CartoonButton
+            label="🛡️ Audit"
+            color={currentPage === 'audit' ? 'bg-amber-400' : 'bg-gray-500'}
+            onClick={() => handleNavigate('audit')}
+          />
+          <CartoonButton
+            label="🔍 Analyze"
+            color={currentPage === 'ingest' ? 'bg-cyan-400' : 'bg-gray-500'}
+            onClick={() => handleNavigate('ingest')}
+          />
+          <CartoonButton
+            label="🔄 Swap"
+            color={currentPage === 'swap' ? 'bg-purple-400' : 'bg-gray-500'}
+            onClick={() => handleNavigate('swap')}
+          />
+          <CartoonButton
+            label="💸 Transfer"
+            color={currentPage === 'transfer' ? 'bg-pink-400' : 'bg-gray-500'}
+            onClick={() => handleNavigate('transfer')}
+          />
           <div style={{ width: '1px', height: '24px', background: 'rgba(255,255,255,0.2)', margin: '0 0.5rem' }} />
           <CartoonButton
             label="🪙 Credits"
@@ -273,6 +273,9 @@ function App() {
             </>
           )}
         </div>
+
+        {/* Transaction History Log (Required for Bounty #2) */}
+        <TransactionHistory transactions={transactions} />
 
         {/* Footer */}
         <footer style={{ 

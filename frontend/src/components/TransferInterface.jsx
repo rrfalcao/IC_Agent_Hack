@@ -10,6 +10,7 @@ import { useAccount, useSignTypedData } from 'wagmi';
 import { CartoonButton } from './CartoonButton';
 import { PaymentModal } from './PaymentModal';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
+import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
 const TOKENS = [
   { symbol: 'tBNB', name: 'Test BNB', address: null },
@@ -165,6 +166,17 @@ export function TransferInterface() {
 
       if (!response.ok) {
         throw new Error(responseData.message || 'Transfer failed');
+      }
+
+      // Log the transfer activity
+      if (userAddress) {
+        const tokenSymbol = token ? TOKENS.find(t => t.address === token)?.symbol : 'tBNB';
+        logActivity(userAddress, ACTIVITY_TYPES.TOKEN_TRANSFER, {
+          status: 'success',
+          details: `Transferred ${amount} ${tokenSymbol} to ${recipient.slice(0, 8)}...${recipient.slice(-6)}`,
+          txHash: responseData.txHash,
+          amount: `${amount} ${tokenSymbol}`
+        });
       }
 
       setSuccess({
@@ -382,9 +394,7 @@ export function TransferInterface() {
         isOpen={showPayment}
         paymentRequest={paymentRequest}
         onPaymentComplete={handlePaymentComplete}
-        onSkip={(paymentId) => handlePaymentComplete(paymentId, null)}
         onCancel={() => setShowPayment(false)}
-        demoMode={true}
       />
 
       {/* Error */}
