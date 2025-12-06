@@ -346,3 +346,24 @@ export async function transferV2(transferParams, userAddress) {
   return response.json();
 }
 
+/**
+ * Award demo credits to user (for hackathon judges)
+ * @param {string} userAddress - User's wallet address
+ * @param {string} amount - Amount of CHIM to award
+ * @param {string} reason - Reason for award
+ */
+export async function awardDemoCredits(userAddress, amount = '100', reason = 'demo') {
+  const response = await fetch(`${API_URL}/api/credits/award`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userAddress, amount, reason })
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to award credits');
+  }
+  
+  return response.json();
+}
+

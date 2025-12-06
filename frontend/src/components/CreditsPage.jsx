@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useAccount, useSignTypedData } from 'wagmi';
+import { useAccount, useWalletClient } from 'wagmi';
 import { 
   getCreditBalance, 
   getCreditPricing, 
@@ -38,7 +38,7 @@ const getServiceStyle = (service) => {
 
 export default function CreditsPage() {
   const { address, isConnected } = useAccount();
-  const { signTypedDataAsync } = useSignTypedData();
+  const { data: walletClient } = useWalletClient();
   const [balance, setBalance] = useState(null);
   const [pricing, setPricing] = useState(null);
   const [packages, setPackages] = useState([]);
@@ -93,23 +93,46 @@ export default function CreditsPage() {
 
   const handleConfirmPayment = async () => {
     if (!paymentInfo || !selectedPackage) return;
+    if (!walletClient) {
+      setMessage({ type: 'error', text: 'Wallet not connected. Please reconnect.' });
+      return;
+    }
+    
     setSigning(true);
     setMessage(null);
     
     try {
+      console.log('[Credits] Payment info:', paymentInfo);
+      
       const paymentDetails = paymentInfo.accepts?.[0];
-      if (!paymentDetails?.witness) throw new Error('Invalid payment details');
+      if (!paymentDetails?.witness) {
+        console.error('[Credits] Invalid payment details - no witness:', paymentDetails);
+        throw new Error('Invalid payment details - missing witness data');
+      }
       
       const witnessData = paymentDetails.witness;
+      console.log('[Credits] Witness data:', witnessData);
       
       // Build the message with the actual user address as owner
+      // Convert uint256 values to BigInt for proper EIP-712 signing
       const messageWithOwner = { 
-        ...witnessData.message, 
-        owner: address 
+        owner: address,
+        token: witnessData.message.token,
+        amount: BigInt(witnessData.message.amount),
+        to: witnessData.message.to,
+        deadline: BigInt(witnessData.message.deadline),
+        paymentId: witnessData.message.paymentId,
+        nonce: BigInt(witnessData.message.nonce)
       };
       
-      // Sign with complete domain (including verifyingContract)
-      const signature = await signTypedDataAsync({
+      console.log('[Credits] Signing typed data with wallet client...');
+      console.log('[Credits] Domain:', witnessData.domain);
+      console.log('[Credits] Types:', witnessData.types);
+      console.log('[Credits] Message:', messageWithOwner);
+      
+      // Use viem's signTypedData via wallet client - this opens MetaMask
+      const signature = await walletClient.signTypedData({
+        account: address,
         domain: {
           name: witnessData.domain.name,
           version: witnessData.domain.version,
@@ -121,7 +144,20 @@ export default function CreditsPage() {
         message: messageWithOwner
       });
       
+      console.log('[Credits] Signature obtained:', signature);
+      
       // Build payload with the exact data that was signed
+      // Convert BigInt back to strings for JSON serialization
+      const messageForPayload = {
+        owner: address,
+        token: witnessData.message.token,
+        amount: witnessData.message.amount.toString(),
+        to: witnessData.message.to,
+        deadline: witnessData.message.deadline.toString(),
+        paymentId: witnessData.message.paymentId,
+        nonce: witnessData.message.nonce.toString()
+      };
+      
       const paymentPayload = {
         witnessSignature: signature,
         paymentDetails: {
@@ -132,7 +168,7 @@ export default function CreditsPage() {
               ...witnessData.domain,
               chainId: Number(witnessData.domain.chainId)
             },
-            message: messageWithOwner 
+            message: messageForPayload 
           }
         }
       };
@@ -156,7 +192,13 @@ export default function CreditsPage() {
         await fetchData();
       }
     } catch (err) {
-      setMessage({ type: 'error', text: err.message?.includes('rejected') ? 'Cancelled' : 'Failed' });
+      console.error('[Credits] Payment error:', err);
+      const errorMsg = err.message || String(err);
+      if (errorMsg.includes('rejected') || errorMsg.includes('denied')) {
+        setMessage({ type: 'error', text: 'Transaction cancelled by user' });
+      } else {
+        setMessage({ type: 'error', text: `Error: ${errorMsg.slice(0, 100)}` });
+      }
     } finally {
       setSigning(false);
     }
@@ -517,25 +559,25 @@ export default function CreditsPage() {
               </button>
               <button
                 onClick={handleConfirmPayment}
-                disabled={signing}
+                disabled={signing || !walletClient}
                 style={{
                   flex: 1,
                   padding: '14px',
-                  background: 'linear-gradient(to right, #f59e0b, #ea580c)',
-                  color: 'black',
+                  background: (signing || !walletClient) ? '#475569' : 'linear-gradient(to right, #f59e0b, #ea580c)',
+                  color: (signing || !walletClient) ? '#94a3b8' : 'black',
                   border: 'none',
                   borderRadius: '10px',
                   fontSize: '1rem',
                   fontWeight: 'bold',
-                  cursor: signing ? 'not-allowed' : 'pointer',
-                  opacity: signing ? 0.5 : 1,
+                  cursor: (signing || !walletClient) ? 'not-allowed' : 'pointer',
+                  opacity: (signing || !walletClient) ? 0.7 : 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px'
                 }}
               >
-                {signing ? '...' : '✍️ Sign & Pay'}
+                {signing ? 'Signing...' : !walletClient ? 'Connecting...' : '✍️ Sign & Pay'}
               </button>
             </div>
             
