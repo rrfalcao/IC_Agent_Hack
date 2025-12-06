@@ -81,14 +81,10 @@ export default function OnboardingButton() {
       });
       
       setStatus('success');
-      setMessage('🎉 Funds received! Refreshing in 3 seconds...');
+      setMessage('🎉 Test funds sent successfully!');
       setTxLinks(data.transactions);
-      setHasClaimed(true);
-
-      // Auto-reload after 3 seconds to refresh balances
-      setTimeout(() => {
-        window.location.reload();
-      }, 3000);
+      // Note: Don't set hasClaimed here so the success UI stays visible
+      // The backend tracks claims, so refresh will show "already claimed"
 
     } catch (err) {
       console.error('Faucet error:', err);
@@ -276,43 +272,191 @@ export default function OnboardingButton() {
           )}
         </button>
 
-        {/* Status Messages */}
+        {/* Success State - Full Display with Transaction Links */}
         {status === 'success' && (
           <div style={{
-            marginTop: '12px',
-            padding: '12px',
-            background: 'rgba(34,197,94,0.2)',
-            border: '1px solid rgba(34,197,94,0.4)',
-            borderRadius: '8px',
-            color: '#4ade80',
-            fontSize: '0.85rem',
-            textAlign: 'center'
+            marginTop: '16px',
+            padding: '20px',
+            background: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(16,185,129,0.15))',
+            border: '2px solid rgba(34,197,94,0.4)',
+            borderRadius: '12px',
           }}>
-            {message}
+            {/* Success Header */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px', 
+              marginBottom: '16px' 
+            }}>
+              <span style={{ 
+                fontSize: '2.5rem',
+                animation: 'bounce 0.5s ease-out'
+              }}>🎉</span>
+              <div>
+                <h4 style={{ 
+                  margin: 0, 
+                  color: '#4ade80', 
+                  fontSize: '1.2rem', 
+                  fontWeight: '700' 
+                }}>
+                  Test Funds Received!
+                </h4>
+                <p style={{ 
+                  margin: '4px 0 0 0', 
+                  color: '#86efac', 
+                  fontSize: '0.85rem' 
+                }}>
+                  Your wallet has been funded successfully
+                </p>
+              </div>
+            </div>
+
+            {/* Funds Received Summary */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              marginBottom: '16px',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{
+                flex: 1,
+                minWidth: '140px',
+                background: 'rgba(251,191,36,0.1)',
+                border: '1px solid rgba(251,191,36,0.3)',
+                borderRadius: '10px',
+                padding: '12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>⛽</div>
+                <div style={{ color: '#fbbf24', fontWeight: '700', fontSize: '1.1rem' }}>0.02 tBNB</div>
+                <div style={{ color: '#fcd34d', fontSize: '0.7rem' }}>For gas fees</div>
+              </div>
+              <div style={{
+                flex: 1,
+                minWidth: '140px',
+                background: 'rgba(34,197,94,0.1)',
+                border: '1px solid rgba(34,197,94,0.3)',
+                borderRadius: '10px',
+                padding: '12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>💵</div>
+                <div style={{ color: '#4ade80', fontWeight: '700', fontSize: '1.1rem' }}>1,000 USDC</div>
+                <div style={{ color: '#86efac', fontSize: '0.7rem' }}>For testing</div>
+              </div>
+            </div>
+
+            {/* Transaction Links */}
             {txLinks && (
-              <div style={{ marginTop: '8px', display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {txLinks.bnb && (
-                  <a
-                    href={txLinks.bnb.explorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: '#fbbf24', fontSize: '0.75rem' }}
-                  >
-                    View BNB Tx ↗
-                  </a>
-                )}
-                {txLinks.usdc && (
-                  <a
-                    href={txLinks.usdc.explorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: '#4ade80', fontSize: '0.75rem' }}
-                  >
-                    View USDC Tx ↗
-                  </a>
-                )}
+              <div style={{
+                background: 'rgba(0,0,0,0.2)',
+                borderRadius: '10px',
+                padding: '14px',
+              }}>
+                <div style={{ 
+                  color: '#94a3b8', 
+                  fontSize: '0.75rem', 
+                  marginBottom: '10px',
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em'
+                }}>
+                  🔗 Transaction Links
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {txLinks.bnb && (
+                    <a
+                      href={txLinks.bnb.explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        background: 'rgba(251,191,36,0.1)',
+                        border: '1px solid rgba(251,191,36,0.3)',
+                        borderRadius: '8px',
+                        color: '#fbbf24',
+                        textDecoration: 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: '500',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(251,191,36,0.2)';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(251,191,36,0.1)';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }}
+                    >
+                      <span>⛽ tBNB Transaction</span>
+                      <span style={{ 
+                        fontFamily: 'monospace', 
+                        fontSize: '0.75rem',
+                        opacity: 0.8
+                      }}>
+                        {txLinks.bnb.hash?.slice(0, 10)}...{txLinks.bnb.hash?.slice(-6)} ↗
+                      </span>
+                    </a>
+                  )}
+                  {txLinks.usdc && (
+                    <a
+                      href={txLinks.usdc.explorerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 14px',
+                        background: 'rgba(34,197,94,0.1)',
+                        border: '1px solid rgba(34,197,94,0.3)',
+                        borderRadius: '8px',
+                        color: '#4ade80',
+                        textDecoration: 'none',
+                        fontSize: '0.85rem',
+                        fontWeight: '500',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(34,197,94,0.2)';
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(34,197,94,0.1)';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }}
+                    >
+                      <span>💵 MockUSDC Transaction</span>
+                      <span style={{ 
+                        fontFamily: 'monospace', 
+                        fontSize: '0.75rem',
+                        opacity: 0.8
+                      }}>
+                        {txLinks.usdc.hash?.slice(0, 10)}...{txLinks.usdc.hash?.slice(-6)} ↗
+                      </span>
+                    </a>
+                  )}
+                </div>
               </div>
             )}
+
+            {/* Next Steps */}
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px',
+              background: 'rgba(139,92,246,0.1)',
+              border: '1px solid rgba(139,92,246,0.3)',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <span style={{ color: '#c7d2fe', fontSize: '0.85rem' }}>
+                ✨ You're all set! Use the navigation above to explore the platform.
+              </span>
+            </div>
           </div>
         )}
 
@@ -345,6 +489,10 @@ export default function OnboardingButton() {
       <style>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @keyframes bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
       `}</style>
     </div>

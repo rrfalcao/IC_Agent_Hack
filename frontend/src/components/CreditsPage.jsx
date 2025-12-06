@@ -101,22 +101,39 @@ export default function CreditsPage() {
       if (!paymentDetails?.witness) throw new Error('Invalid payment details');
       
       const witnessData = paymentDetails.witness;
+      
+      // Build the message with the actual user address as owner
+      const messageWithOwner = { 
+        ...witnessData.message, 
+        owner: address 
+      };
+      
+      // Sign with complete domain (including verifyingContract)
       const signature = await signTypedDataAsync({
         domain: {
           name: witnessData.domain.name,
           version: witnessData.domain.version,
-          chainId: witnessData.domain.chainId
+          chainId: Number(witnessData.domain.chainId),
+          verifyingContract: witnessData.domain.verifyingContract
         },
         types: witnessData.types,
         primaryType: witnessData.primaryType,
-        message: { ...witnessData.message, owner: address }
+        message: messageWithOwner
       });
       
+      // Build payload with the exact data that was signed
       const paymentPayload = {
         witnessSignature: signature,
         paymentDetails: {
           ...paymentDetails,
-          witness: { ...paymentDetails.witness, message: { ...paymentDetails.witness.message, owner: address } }
+          witness: { 
+            ...paymentDetails.witness, 
+            domain: {
+              ...witnessData.domain,
+              chainId: Number(witnessData.domain.chainId)
+            },
+            message: messageWithOwner 
+          }
         }
       };
       const paymentHeader = btoa(JSON.stringify(paymentPayload));

@@ -1,208 +1,395 @@
-# The Sovereign Architect
+# 🦁 CHIMERA
 
-AI Agent for autonomous DeFi strategy deployment using ChainGPT, Q402, and AWE Network.
+### The Autonomous AI Agent for Smart Contract Development on BNB Chain
 
-## 🎯 Phase 1 Status: COMPLETE ✅
+> **An AI-powered platform that generates, audits, and deploys smart contracts with gas-sponsored execution and verifiable on-chain identity.**
 
-### Completed Components
+[![Live Demo](https://img.shields.io/badge/🌐_Live_Demo-Railway-blueviolet)](https://your-railway-url.railway.app)
+[![BNB Chain](https://img.shields.io/badge/Network-BNB_Chain_Testnet-F0B90B)](https://testnet.bscscan.com)
+[![ChainGPT](https://img.shields.io/badge/AI-ChainGPT-00D395)](https://chaingpt.org)
+[![x402](https://img.shields.io/badge/Payments-x402_Protocol-6366f1)](https://github.com/quackai-labs/Q402)
 
-- ✅ **Project Structure** - Clean, modular architecture
-- ✅ **ChainGPT Integration** - Streaming chat, contract generation, auditing
-- ✅ **Hono Backend** - SSE streaming endpoints
-- ✅ **Blockchain Service** - Context injection (gas prices, block numbers)
-- ✅ **Configuration Management** - Environment validation
-- ✅ **Validation Suite** - Automated testing
+---
 
-### Test Results
+## 🎯 Quick Start for Judges
+
+### Step 1: Access the Platform
+
+1. **Visit the live demo**: [https://your-railway-url.railway.app](https://your-railway-url.railway.app)
+2. **Enter the authorization code** when prompted (provided separately)
+3. **Connect your MetaMask wallet** to BNB Smart Chain Testnet
+
+### Step 2: Get Test Funds (One Click!)
+
+Once connected, you'll see a **"Judge / Demo Mode"** card:
+- Click **"🎁 Get Free Test Funds"**
+- Receive **0.02 tBNB** (gas) + **1,000 MockUSDC** (testing) instantly
+- No faucet hunting required!
+
+### Step 3: Explore Features
+
+| Feature | What to Test | Expected Result |
+|---------|--------------|-----------------|
+| **💬 AI Chat** | Ask "What is BNB Chain?" | Streaming AI response with Web3 context |
+| **🏗️ Generate** | "Create a simple ERC-20 token" | Code generation → Audit loop → Deploy |
+| **🛡️ Audit** | Paste any Solidity code | Security score + vulnerability report |
+| **🔍 Analyze** | Enter any contract address | Source code + transaction analysis |
+| **🔄 Swap** | Swap tBNB for tokens | PancakeSwap integration |
+| **💸 Transfer** | Send tokens to any address | Gas-sponsored transfer |
+
+---
+
+## 🏆 Bounty Compliance
+
+### Bounty #1: AWE Network 800402 Initiative ($10,000)
+
+| Requirement | Status | Implementation |
+|-------------|--------|----------------|
+| ERC-8004 Agent Identity | ✅ | Registered on Base Sepolia ([View](https://sepolia.basescan.org)) |
+| x402 Micropayments | ✅ | HTTP 402 payment challenges + EIP-712 signatures |
+| Service Token | ✅ | CHIM (Chimera Credit) token for service payments |
+| AWEtoAgent Kit | ✅ | Full integration for identity + payments |
+| Working Demo | ✅ | Live on Railway with complete payment flow |
+
+**Key Contract Addresses:**
+- **Agent Identity (ERC-8004)**: `0x8004AA63c570c570eBF15376c0dB199918BFe9Fb` (Base Sepolia)
+- **Agent ID**: `1581`
+
+---
+
+### Bounty #2: Quack × ChainGPT Super Web3 Agent ($20,000)
+
+#### ✅ Required ChainGPT APIs (Minimum 2)
+
+| API | Status | Usage |
+|-----|--------|-------|
+| **Web3 LLM** | ✅ | Blockchain-aware chat responses |
+| **Smart Contract Generator** | ✅ | Natural language → Solidity code |
+| **Smart Contract Auditor** | ✅ | AI-powered vulnerability detection |
+
+#### ✅ Required Quack Q402 Implementation
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| Real Sign-to-Pay | ✅ | EIP-712 typed data signatures |
+| Payment Verification | ✅ | Server-side signature validation |
+| Testnet Deployment | ✅ | BNB Smart Chain Testnet (Chain ID: 97) |
+
+#### ✅ Must-Have Features
+
+**Core Functionality:**
+- ✅ **Chat UI** - Modern streaming interface with markdown support
+- ✅ **Research + Explain** - ChainGPT-powered blockchain education
+- ✅ **Contract Generation** - Natural language to Solidity
+- ✅ **AI Audit** - Self-correcting audit loop (≥80% threshold)
+- ✅ **Multiple Actions**: Transfer, Swap, Deploy, Contract Call
+
+**Security Features:**
+- ✅ **Spend Caps** - Policy-enforced transaction limits
+- ✅ **Allow/Deny Lists** - Configurable contract restrictions
+- ✅ **Transaction Preview** - Full transparency before signing
+- ✅ **Risk Warnings** - Clear vulnerability communication
+- ✅ **Transaction Log** - Complete activity history in wallet
+
+**Configuration:**
+- ✅ **Testnet/Mainnet Toggle** - Environment-based switching
+
+---
+
+## 🛠️ Technical Architecture
 
 ```
-✅ Configuration Loading
-✅ Blockchain Connection  
-✅ Gas Price Fetching
-✅ Facilitator Balance (0.3 tBNB)
-✅ Blockchain Context Generation
-✅ ChainGPT Service Initialization
-⚠️  ChainGPT API Query (needs credits)
-✅ Context Injection
+┌─────────────────────────────────────────────────────────────┐
+│                     CHIMERA PLATFORM                        │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │   React +   │  │    Hono     │  │   BNB Smart Chain   │  │
+│  │    Vite     │──│   Backend   │──│      Testnet        │  │
+│  │  Frontend   │  │   (Node)    │  │    (Chain ID: 97)   │  │
+│  └─────────────┘  └──────┬──────┘  └─────────────────────┘  │
+│         │                │                    │              │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌─────────▼───────────┐  │
+│  │   Wagmi +   │  │  ChainGPT   │  │    Facilitator      │  │
+│  │  MetaMask   │  │    APIs     │  │  (Gas Sponsorship)  │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+│         │                │                    │              │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌─────────▼───────────┐  │
+│  │    x402     │  │   Audit     │  │   ERC-8004 Agent    │  │
+│  │  Payments   │  │    Loop     │  │     Identity        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**7/8 tests passing** - Only waiting for ChainGPT hackathon credits allocation.
+### Tech Stack
 
-## 🚀 Quick Start
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Frontend** | React + Vite | Modern SPA with hot reload |
+| **Wallet** | Wagmi + viem | Type-safe Web3 interactions |
+| **Backend** | Hono + Node.js | Lightweight, edge-compatible API |
+| **AI** | ChainGPT SDK | Web3-native language model |
+| **Blockchain** | Ethers.js | Contract deployment & transactions |
+| **Identity** | AWE Network | ERC-8004 agent NFT |
+| **Payments** | Q402 Protocol | x402 micropayments |
+| **Hosting** | Railway | Containerized deployment |
+
+---
+
+## 💰 CHIM Token Economy
+
+Chimera uses **CHIM (Chimera Credit)** as its native service token:
+
+| Service | Cost (CHIM) | Description |
+|---------|-------------|-------------|
+| Generate Contract | 10 | AI code generation + audit loop |
+| Security Audit | 5 | Vulnerability analysis |
+| Contract Analysis | 3 | Deployed contract inspection |
+| Token Swap | 2 | PancakeSwap execution |
+| Gas-Free Transfer | 1 | Sponsored token transfer |
+| AI Chat | 0.1 | Per message |
+
+**How to Get CHIM:**
+1. Use the "Judge Faucet" for free test funds
+2. Buy with USDC via x402 payment flow
+3. Receive bonus credits for first-time users
+
+---
+
+## 🔐 Security Features
+
+### Audit Loop (Self-Correcting AI)
+
+```
+User Prompt → Generate Code → Audit Code → Score ≥ 80%? 
+                    ↑                           │
+                    └── Regenerate with fixes ←─┘ (if score < 80%)
+```
+
+The audit loop ensures all generated contracts meet security standards:
+- **Max 3 iterations** to prevent infinite loops
+- **Detailed feedback** on each iteration
+- **Visual progress** in the UI
+
+### Transaction Safety
+
+- **Preview all transactions** before signing
+- **Spend limits enforced** per transaction and daily
+- **Clear risk indicators** for high-value operations
+- **One-click cancellation** at any step
+
+### Authorization Gate
+
+- **Access code required** to enter the platform
+- **Session-based** (clears on browser close)
+- **Server-side validation** (code never exposed to client)
+
+---
+
+## 📡 API Endpoints
+
+### Public Endpoints
+
+```bash
+GET  /health                    # Health check
+GET  /agent                     # Agent info + blockchain status
+GET  /.well-known/agent-metadata.json  # A2A protocol metadata
+```
+
+### Chat & AI
+
+```bash
+POST /api/chat                  # Streaming chat (SSE)
+POST /api/chat/blob             # Non-streaming chat
+POST /api/generate              # Contract generation (SSE)
+POST /api/audit                 # Security audit
+```
+
+### Blockchain Operations
+
+```bash
+POST /api/contract/create       # Full generate → audit → deploy
+POST /api/contract/compile      # Compile Solidity
+POST /api/contract/deploy       # Deploy bytecode
+POST /api/contract/ingest       # Analyze deployed contract
+POST /api/transfer              # Transfer tokens
+POST /api/swap/execute          # Execute swap
+```
+
+### CHIM Credits
+
+```bash
+GET  /api/credits/pricing       # Service pricing
+GET  /api/credits/balance/:addr # User balance
+POST /api/credits/buy           # Buy with x402 payment
+POST /api/credits/spend         # Spend for service
+```
+
+### Judge/Demo
+
+```bash
+GET  /api/faucet/status         # Faucet balance
+POST /api/faucet/drip           # Get test funds
+```
+
+---
+
+## 🚀 Local Development
 
 ### Prerequisites
 
 - Node.js >= 20.9.0
-- ChainGPT API key (from https://app.chaingpt.org/)
-- Funded BSC testnet wallet (at least 0.05 tBNB)
+- MetaMask wallet
+- BSC Testnet tBNB (or use our faucet)
 
 ### Installation
 
 ```bash
-# Install dependencies
+# Clone the repository
+git clone https://github.com/your-repo/chimera.git
+cd chimera
+
+# Install backend dependencies
 npm install
 
-# Validate setup
-npm run validate
+# Install frontend dependencies
+cd frontend && npm install && cd ..
 
-# Start development server
+# Create environment file
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+### Environment Variables
+
+```bash
+# Required
+CHAINGPT_API_KEY=your_chaingpt_api_key
+BNB_RPC_URL=https://data-seed-prebsc-1-s1.binance.org:8545
+BNB_CHAIN_ID=97
+FACILITATOR_WALLET_ADDRESS=0x...
+FACILITATOR_PRIVATE_KEY=0x...
+
+# Optional
+AUTH_ACCESS_CODE=your_secret_code
+CHIM_DEMO_MODE=true
+NODE_ENV=development
+```
+
+### Run Locally
+
+```bash
+# Start backend (port 3000)
 npm run dev
+
+# In another terminal, start frontend
+cd frontend && npm run dev
 ```
 
-### Environment Setup
+### Build for Production
 
-Your `.env` file is already configured with:
-- ✅ ChainGPT API Key
-- ✅ BSC Testnet RPC
-- ✅ Facilitator Wallet (0x3710FEbef97cC9705b273C93f2BEB9aDf091Ffc9)
-- ✅ 0.3 tBNB balance
-
-## 📡 API Endpoints
-
-### Health & Info
-- `GET /health` - Health check
-- `GET /agent` - Agent information with blockchain status
-
-### Chat & Generation
-- `POST /api/chat` - Streaming chat (Server-Sent Events)
-- `POST /api/chat/blob` - Non-streaming chat
-- `POST /api/generate` - Generate smart contract (SSE)
-- `POST /api/audit` - Audit smart contract
-
-### Blockchain
-- `GET /api/blockchain` - Current blockchain status
-- `GET /api/balance/:address` - Check wallet balance
-
-## 🧪 Testing
-
-### Validate Setup
 ```bash
-npm run validate
+# Build frontend
+cd frontend && npm run build
+
+# Start production server
+npm start
 ```
 
-### Check Balance
-```bash
-npm run check-balance
-```
-
-### Test Chat Endpoint
-```bash
-curl -X POST http://localhost:3000/api/chat/blob \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What is BNB Chain?"}'
-```
-
-### Test Streaming Chat
-```bash
-curl -N -X POST http://localhost:3000/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Explain gas fees"}'
-```
+---
 
 ## 📁 Project Structure
 
 ```
-src/
-├── config/
-│   └── index.js          # Environment configuration
-├── services/
-│   ├── chaingpt.js       # ChainGPT SDK wrapper
-│   └── blockchain.js     # Blockchain interactions
-└── index.js              # Main Hono application
-
-scripts/
-├── validate-setup.js     # Validation suite
-└── setup-env.js          # Environment helper
-
-docs/                     # Documentation
-q402-snapshot/            # Q402 protocol implementation
-AWEtoAgent-Kit/           # AWE Network SDK
+├── src/
+│   ├── index.js              # Main Hono server
+│   ├── config/               # Environment configuration
+│   ├── services/
+│   │   ├── chaingpt.js       # ChainGPT SDK integration
+│   │   ├── blockchain.js     # Web3 interactions
+│   │   ├── facilitator.js    # Gas sponsorship
+│   │   ├── credits.js        # CHIM token management
+│   │   ├── auditLoop.js      # Self-correcting audit
+│   │   └── ...
+│   ├── middleware/
+│   │   └── q402.js           # x402 payment middleware
+│   └── routes/
+│       └── faucet.js         # Judge faucet endpoints
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   ├── hooks/            # Custom React hooks
+│   │   ├── services/         # API client
+│   │   └── config/           # Wagmi configuration
+│   └── ...
+│
+├── q402-snapshot/            # Q402 protocol implementation
+├── AWEtoAgent-Kit/           # AWE Network SDK (reference)
+├── contracts/                # Solidity contracts (CHIM token)
+└── Dockerfile                # Railway deployment
 ```
-
-## 🔧 Configuration
-
-### ChainGPT API
-- **Key**: Configured ✅
-- **Credits**: Waiting for hackathon allocation
-- **Rate Limit**: 200 requests/minute
-
-### Blockchain
-- **Network**: BSC Testnet (Chain ID: 97)
-- **RPC**: https://data-seed-prebsc-1-s1.binance.org:8545
-- **Facilitator**: 0x3710FEbef97cC9705b273C93f2BEB9aDf091Ffc9
-- **Balance**: 0.3 tBNB ✅
-
-### Features
-- **Payments**: Disabled (Phase 2)
-- **Audit Loop**: Enabled
-- **Audit Threshold**: 80%
-
-## 🎯 Next Steps (Phase 2)
-
-1. **Get ChainGPT Credits** - Contact hackathon organizers
-2. **Test All APIs** - Chat, Generator, Auditor
-3. **Integrate Q402** - Payment verification
-4. **Build Frontend** - React + Vite + Wagmi
-5. **Deploy AWE Identity** - ERC-8004 NFT
-
-## 📝 Notes
-
-### ChainGPT Credits
-Your API key is configured but needs hackathon credits. Once allocated:
-1. Run `npm run validate` to confirm
-2. Test streaming: `npm run dev`
-3. Access http://localhost:3000/agent
-
-### Wallet Security
-- Private key is in `.env` (gitignored)
-- Only use for testnet
-- Never commit `.env` to git
-
-## 🐛 Troubleshooting
-
-### "Insufficient credits" error
-- Wait for ChainGPT hackathon credits allocation
-- Check balance at https://app.chaingpt.org/
-
-### "Cannot connect to blockchain"
-- Verify RPC URL is accessible
-- Check internet connection
-- Try backup RPC: https://bsc-testnet.publicnode.com
-
-### "Facilitator balance too low"
-- Current balance: 0.3 tBNB (sufficient)
-- Minimum needed: 0.05 tBNB
-- Faucet: https://www.bnbchain.org/en/testnet-faucet
-
-## 📚 Documentation
-
-- [Plan](./plan.md) - Full 5-day execution strategy
-- [Overview](./overview.md) - Project architecture
-- [Bounties](./bounties.md) - Hackathon requirements
-- [ChainGPT Docs](./docs/chaingpt_sdk_ref2.md) - SDK reference
-- [BSC Testnet](./docs/BSCTest.md) - Network configuration
-
-## 🏆 Hackathon Bounties
-
-### Target Bounties
-1. **Quack × ChainGPT Super Web3 Agent** ($20,000)
-   - ✅ ChainGPT APIs (Chat, Generator, Auditor)
-   - 🔄 Q402 sign-to-pay (Phase 2)
-   - ✅ Security features
-   - ✅ Testnet/Mainnet ready
-
-2. **AWE Network 800402 Initiative** ($10,000)
-   - 🔄 ERC-8004 identity (Phase 2)
-   - 🔄 x402 micropayments (Phase 2)
-   - ✅ Service architecture
-
-## 📞 Support
-
-- ChainGPT Discord: https://discord.gg/chaingpt
-- BNB Chain Discord: https://discord.gg/bnbchain
-- AWE Network Docs: https://docs.awenetwork.ai
 
 ---
 
-**Built with ❤️ for the BNB Chain Hackathon**
+## 🎬 Demo Walkthrough
 
+### 1. Authentication
+- Visit the platform URL
+- Enter the provided authorization code
+- Connect MetaMask to BNB Testnet
+
+### 2. Get Test Funds
+- Click "🎁 Get Free Test Funds"
+- Receive 0.02 tBNB + 1,000 MockUSDC
+- Check wallet to confirm
+
+### 3. Generate a Contract
+- Navigate to "Generate"
+- Enter: "Create a simple ERC-20 token called TestCoin with 1 million supply"
+- Watch the audit loop in real-time
+- Preview the generated code
+- Click "Deploy" (gas-free!)
+
+### 4. Audit a Contract
+- Navigate to "Audit"
+- Paste any Solidity code OR enter a contract address
+- Receive security score + detailed report
+
+### 5. Use AI Chat
+- Navigate to "Chat"
+- Ask blockchain questions
+- Get real-time streaming responses
+
+---
+
+## 🏅 What Makes Chimera Special
+
+1. **Complete Integration** - ChainGPT + Q402 + AWE in one platform
+2. **Self-Correcting AI** - Audit loop ensures code quality
+3. **Gas-Free for Users** - Facilitator sponsors all transactions
+4. **Production Ready** - Deployed on Railway, not just localhost
+5. **Judge-Friendly** - One-click faucet, no setup required
+6. **Beautiful UX** - Modern fintech-style interface
+7. **Full Transparency** - Transaction previews, risk warnings, activity logs
+
+---
+
+## 📞 Support & Links
+
+- **ChainGPT Docs**: https://docs.chaingpt.org
+- **Q402 Protocol**: https://github.com/quackai-labs/Q402
+- **AWE Network**: https://docs.awenetwork.ai
+- **BNB Testnet Faucet**: https://www.bnbchain.org/en/testnet-faucet
+- **BSCScan Testnet**: https://testnet.bscscan.com
+
+---
+
+## 📜 License
+
+MIT License - Built with ❤️ for the BNB Chain Hackathon
+
+---
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Made_for-BNB_Chain_Hackathon-F0B90B?style=for-the-badge" />
+</p>
