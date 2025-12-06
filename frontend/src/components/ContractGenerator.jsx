@@ -16,6 +16,9 @@ import { AuditLoopVisualizer } from './AuditLoopVisualizer';
 import { getCreditBalance, checkCredits } from '../services/api';
 import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
+// In production (served from same origin), use empty string for relative URLs
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
+
 // CHIM cost for contract generation
 const GENERATE_COST = 10;
 
@@ -135,7 +138,7 @@ export function ContractGenerator() {
     try {
       // Use SSE streaming endpoint for real-time audit loop visualization
       // CHIM credits are checked and spent server-side based on userAddress
-      const response = await fetch('http://localhost:3000/api/generate', {
+      const response = await fetch(`${API_URL}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -251,7 +254,7 @@ export function ContractGenerator() {
       if (finalResult) {
         // Try to compile the contract
         try {
-          const compileResponse = await fetch('http://localhost:3000/api/compile', {
+          const compileResponse = await fetch(`${API_URL}/api/compile`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code: finalResult.contractCode })
@@ -366,7 +369,7 @@ export function ContractGenerator() {
         setStep(STEPS.DEPLOYING);
 
         // Deploy with signature
-        const deployResponse = await fetch('http://localhost:3000/api/contract/deploy', {
+        const deployResponse = await fetch(`${API_URL}/api/contract/deploy`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

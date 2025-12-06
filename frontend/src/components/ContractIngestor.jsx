@@ -10,6 +10,9 @@ import { CartoonButton } from './CartoonButton';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
 import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
+// In production (served from same origin), use empty string for relative URLs
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
+
 export function ContractIngestor() {
   const { address: userAddress } = useAccount();
   const [address, setAddress] = useState('');
@@ -25,7 +28,7 @@ export function ContractIngestor() {
     setResult(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/contract/ingest', {
+      const response = await fetch(`${API_URL}/api/contract/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address }),

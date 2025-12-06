@@ -13,6 +13,9 @@ import { GlassPanel } from './GlassPanel';
 import { useAgentBrain } from '../hooks/useAgentBrain';
 import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
+// In production (served from same origin), use empty string for relative URLs
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
+
 const DEFAULT_TOKENS = {
   native: { symbol: 'tBNB', name: 'Test BNB', decimals: 18, address: null },
   WBNB: { symbol: 'WBNB', name: 'Wrapped BNB', decimals: 18, address: '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd' },
@@ -53,7 +56,7 @@ export function SwapInterface() {
         const tokenInAddr = tokenIn === 'native' ? null : DEFAULT_TOKENS[tokenIn]?.address;
         const tokenOutAddr = tokenOut === 'native' ? null : DEFAULT_TOKENS[tokenOut]?.address;
 
-        const response = await fetch('http://localhost:3000/api/swap/quote', {
+        const response = await fetch(`${API_URL}/api/swap/quote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -97,7 +100,7 @@ export function SwapInterface() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/payments/request', {
+      const response = await fetch(`${API_URL}/api/payments/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -174,7 +177,7 @@ export function SwapInterface() {
         const tokenInAddr = tokenIn === 'native' ? null : DEFAULT_TOKENS[tokenIn]?.address;
         const tokenOutAddr = tokenOut === 'native' ? null : DEFAULT_TOKENS[tokenOut]?.address;
 
-        const response = await fetch('http://localhost:3000/api/swap/execute', {
+        const response = await fetch(`${API_URL}/api/swap/execute`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',

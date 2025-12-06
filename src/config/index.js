@@ -40,6 +40,14 @@ export const config = {
   port: parseInt(process.env.PORT || '3000'),
   nodeEnv: process.env.NODE_ENV || 'development',
   
+  // Access Control (Authorization Gate)
+  auth: {
+    // Access code required to use the app (set via AUTH_ACCESS_CODE env var)
+    accessCode: process.env.AUTH_ACCESS_CODE || null,
+    // If no code is set, auth is disabled
+    enabled: !!process.env.AUTH_ACCESS_CODE
+  },
+  
   // ChainGPT
   chaingpt: {
     apiKey: process.env.CHAINGPT_API_KEY

@@ -13,6 +13,9 @@ import AgentIdentityBadge from './AgentIdentityBadge';
 import { useAgentBrain } from '../hooks/useAgentBrain';
 import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
+// In production (served from same origin), use empty string for relative URLs
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
+
 export function ContractAuditor() {
   const { address: userAddress, isConnected } = useAccount();
   const brain = useAgentBrain();
@@ -50,7 +53,7 @@ export function ContractAuditor() {
           ? { code } 
           : { address: contractAddress };
 
-        const response = await fetch('http://localhost:3000/api/audit', {
+        const response = await fetch('${API_URL}/api/audit', {
           method: 'POST',
           headers,
           body: JSON.stringify(body),
@@ -100,7 +103,7 @@ export function ContractAuditor() {
 
     try {
       // Call the protected endpoint to get 402 response
-      const response = await fetch('http://localhost:3000/api/audit', {
+      const response = await fetch('${API_URL}/api/audit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(mode === 'code' ? { code } : { address: contractAddress })

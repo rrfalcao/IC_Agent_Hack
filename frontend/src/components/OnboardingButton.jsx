@@ -9,7 +9,8 @@ import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+// In production (served from same origin), use empty string for relative URLs
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
 
 export default function OnboardingButton() {
   const { address, isConnected } = useAccount();

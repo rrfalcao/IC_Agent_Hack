@@ -68,6 +68,66 @@ app.get('/health', (c) => {
   });
 });
 
+// =====================================================
+// Authorization Gate Endpoints
+// =====================================================
+
+// Check if auth is required
+app.get('/api/auth/status', (c) => {
+  return c.json({
+    authRequired: config.auth.enabled,
+    message: config.auth.enabled 
+      ? 'Authorization code required to access this application'
+      : 'No authorization required'
+  });
+});
+
+// Verify authorization code
+app.post('/api/auth/verify', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { code } = body;
+    
+    // If auth is not enabled, always return success
+    if (!config.auth.enabled) {
+      return c.json({
+        success: true,
+        message: 'Authorization not required'
+      });
+    }
+    
+    // Validate the code
+    if (!code) {
+      return c.json({
+        success: false,
+        error: 'Authorization code required'
+      }, 400);
+    }
+    
+    // Check if code matches (case-sensitive)
+    if (code === config.auth.accessCode) {
+      console.log('[Auth] Valid access code entered');
+      return c.json({
+        success: true,
+        message: 'Access granted! Welcome to Chimera.'
+      });
+    }
+    
+    console.log('[Auth] Invalid access code attempt');
+    return c.json({
+      success: false,
+      error: 'Invalid authorization code'
+    }, 401);
+    
+  } catch (error) {
+    console.error('[Auth] Verification error:', error);
+    return c.json({
+      success: false,
+      error: 'Verification failed'
+    }, 500);
+  }
+});
+
 // Agent info endpoint
 app.get('/agent', async (c) => {
   try {

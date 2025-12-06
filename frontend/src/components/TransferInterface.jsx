@@ -12,6 +12,9 @@ import { PaymentModal } from './PaymentModal';
 import { GlassPanel, glassInputStyle } from './GlassPanel';
 import { logActivity, ACTIVITY_TYPES } from './WalletStatus';
 
+// In production (served from same origin), use empty string for relative URLs
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '' : 'http://localhost:3000');
+
 const TOKENS = [
   { symbol: 'tBNB', name: 'Test BNB', address: null },
   { symbol: 'BUSD', name: 'Binance USD', address: '0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee' },
@@ -42,7 +45,7 @@ export function TransferInterface() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/transfer/preview', {
+      const response = await fetch(`${API_URL}/api/transfer/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, to: recipient, amount }),
@@ -77,7 +80,7 @@ export function TransferInterface() {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:3000/api/payments/request', {
+      const response = await fetch(`${API_URL}/api/payments/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +151,7 @@ export function TransferInterface() {
 
       console.log('Transfer intent signed');
 
-      const response = await fetch('http://localhost:3000/api/transfer', {
+      const response = await fetch(`${API_URL}/api/transfer`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
