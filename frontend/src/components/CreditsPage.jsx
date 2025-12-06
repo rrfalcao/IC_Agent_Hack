@@ -92,7 +92,10 @@ export default function CreditsPage() {
   };
 
   const handleConfirmPayment = async () => {
-    if (!paymentInfo || !selectedPackage) return;
+    if (!paymentInfo || !selectedPackage) {
+      console.error('[Credits] Missing paymentInfo or selectedPackage');
+      return;
+    }
     if (!walletClient) {
       setMessage({ type: 'error', text: 'Wallet not connected. Please reconnect.' });
       return;
@@ -102,7 +105,8 @@ export default function CreditsPage() {
     setMessage(null);
     
     try {
-      console.log('[Credits] Payment info:', paymentInfo);
+      console.log('[Credits] Starting payment confirmation...');
+      console.log('[Credits] Payment info:', JSON.stringify(paymentInfo, null, 2));
       
       const paymentDetails = paymentInfo.accepts?.[0];
       if (!paymentDetails?.witness) {
@@ -111,24 +115,28 @@ export default function CreditsPage() {
       }
       
       const witnessData = paymentDetails.witness;
-      console.log('[Credits] Witness data:', witnessData);
+      console.log('[Credits] Witness data received');
+      
+      // Validate required fields
+      if (!witnessData.message?.amount || !witnessData.message?.deadline || !witnessData.message?.nonce) {
+        console.error('[Credits] Missing required witness fields:', witnessData.message);
+        throw new Error('Invalid witness data - missing required fields');
+      }
       
       // Build the message with the actual user address as owner
-      // Convert uint256 values to BigInt for proper EIP-712 signing
+      // Use strings for uint256 values - viem handles conversion
       const messageWithOwner = { 
         owner: address,
         token: witnessData.message.token,
-        amount: BigInt(witnessData.message.amount),
+        amount: witnessData.message.amount,  // Keep as string - viem converts
         to: witnessData.message.to,
-        deadline: BigInt(witnessData.message.deadline),
+        deadline: witnessData.message.deadline,  // Keep as string
         paymentId: witnessData.message.paymentId,
-        nonce: BigInt(witnessData.message.nonce)
+        nonce: witnessData.message.nonce  // Keep as string
       };
       
-      console.log('[Credits] Signing typed data with wallet client...');
-      console.log('[Credits] Domain:', witnessData.domain);
-      console.log('[Credits] Types:', witnessData.types);
-      console.log('[Credits] Message:', messageWithOwner);
+      console.log('[Credits] Prepared message:', messageWithOwner);
+      console.log('[Credits] Calling signTypedData...');
       
       // Use viem's signTypedData via wallet client - this opens MetaMask
       const signature = await walletClient.signTypedData({
@@ -146,16 +154,6 @@ export default function CreditsPage() {
       console.log('[Credits] Signature obtained:', signature);
       
       // Build payload with the exact data that was signed
-      const messageForPayload = {
-        owner: address,
-        token: witnessData.message.token,
-        amount: witnessData.message.amount.toString(),
-        to: witnessData.message.to,
-        deadline: witnessData.message.deadline.toString(),
-        paymentId: witnessData.message.paymentId,
-        nonce: witnessData.message.nonce.toString()
-      };
-      
       const paymentPayload = {
         witnessSignature: signature,
         paymentDetails: {
@@ -166,13 +164,15 @@ export default function CreditsPage() {
               ...witnessData.domain,
               chainId: Number(witnessData.domain.chainId)
             },
-            message: messageForPayload 
+            message: messageWithOwner 
           }
         }
       };
       
       // Use the new simplified API - send signedApproval in body
       const signedApproval = btoa(JSON.stringify(paymentPayload));
+      console.log('[Credits] Sending signed approval to backend...');
+      
       const result = await completeCreditsPurchase(address, selectedPackage.id, signedApproval);
       
       if (result.success) {
@@ -193,6 +193,7 @@ export default function CreditsPage() {
       }
     } catch (err) {
       console.error('[Credits] Payment error:', err);
+      console.error('[Credits] Error stack:', err.stack);
       const errorMsg = err.message || String(err);
       if (errorMsg.includes('rejected') || errorMsg.includes('denied')) {
         setMessage({ type: 'error', text: 'Transaction cancelled by user' });

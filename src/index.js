@@ -1664,8 +1664,8 @@ app.post('/api/credits/buy', async (c) => {
       // Verify the claimed owner matches the requester
       if (claimedOwner.toLowerCase() !== userAddress.toLowerCase()) {
         return c.json({ error: 'Signature owner mismatch' }, 400);
-      }
-      
+    }
+    
       console.log('[API] Processing credit purchase:', {
         user: userAddress,
         package: selectedPackage.name,
@@ -1679,20 +1679,20 @@ app.post('/api/credits/buy', async (c) => {
       // we'll accept the signed intent and distribute CHIM
       
       // Distribute CHIM credits to user
-      const result = await creditsService.distributeCredits(
-        userAddress,
+    const result = await creditsService.distributeCredits(
+      userAddress,
         selectedPackage.chimAmount,
         selectedPackage.usdcPrice
-      );
+    );
       
       console.log('[API] Credits distributed:', result);
-      
-      return c.json({
-        success: true,
+    
+    return c.json({
+      success: true,
         message: `Successfully purchased ${selectedPackage.chimAmount} CHIM!`,
-        ...result,
+      ...result,
         package: selectedPackage
-      });
+    });
       
     } catch (verifyError) {
       console.error('[API] Approval verification error:', verifyError);
