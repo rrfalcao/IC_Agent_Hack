@@ -1,33 +1,64 @@
-# Ignore EVERYTHING except the main app
-# Railway should ONLY deploy from root using the Dockerfile
+# ===========================================
+# Railway Ignore File
+# This project is a SINGLE SERVICE deployment
+# Ignore all monorepo subdirectories
+# ===========================================
 
-# Ignore all subdirectories completely
-AWEtoAgent-Kit/**
-q402-snapshot/**
-docs/**
-scripts/**
-contracts/**
-node_modules/**
+# Completely ignore these directories - they are NOT separate services
+AWEtoAgent-Kit/
+q402-snapshot/
 
-# Ignore all docker-compose files
+# Ignore documentation
+docs/
+*.md
+!README.md
+
+# Ignore scripts (not needed for deployment)
+scripts/
+
+# Ignore contracts source (not needed at runtime)
+contracts/
+
+# Ignore local node_modules (Docker installs fresh)
+node_modules/
+frontend/node_modules/
+
+# Ignore all docker-compose files (not used by Railway)
 docker-compose*.yml
 docker-compose*.yaml
+**/docker-compose*.yml
+**/docker-compose*.yaml
 
 # Ignore all Dockerfiles except root
 **/Dockerfile
+**/Dockerfile.bak
 !Dockerfile
-
-# Ignore markdown files
-*.md
 
 # Ignore test files
 *.test.js
 *.test.ts
 *.spec.js
 *.spec.ts
+__tests__/
+coverage/
 
-# Ignore package.json in subdirectories
-**/package.json
-!package.json
-!frontend/package.json
+# Ignore development files
+.env
+.env.local
+*.log
+.DS_Store
 
+# Ignore IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore pnpm workspace files in subdirs
+**/pnpm-lock.yaml
+**/pnpm-workspace.yaml
+**/bun.lock

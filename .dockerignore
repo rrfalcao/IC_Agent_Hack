@@ -1,31 +1,82 @@
-# Ignore everything we don't need in the Docker build
-node_modules
-frontend/node_modules
-.git
-.gitignore
+# ===========================================
+# Docker Ignore File
+# Optimize the Docker build context
+# ===========================================
+
+# Ignore node_modules - Docker will install fresh
+node_modules/
+frontend/node_modules/
 
 # Ignore the monorepo subdirectories (except q402 core which is a dependency)
-AWEtoAgent-Kit
+# Note: Dockerfile specifically copies q402-snapshot/packages/core
+AWEtoAgent-Kit/
+q402-snapshot/docs/
+q402-snapshot/examples/
+q402-snapshot/specs/
+q402-snapshot/packages/facilitator/
+q402-snapshot/packages/middleware-express/
+q402-snapshot/packages/middleware-hono/
+q402-snapshot/node_modules/
+q402-snapshot/*.md
+q402-snapshot/*.bak
+q402-snapshot/pnpm-lock.yaml
+q402-snapshot/pnpm-workspace.yaml
 
-# Ignore docs and markdown
-*.md
+# Ignore git
+.git/
+.gitignore
+.railwayignore
+
+# Ignore documentation
 docs/
+*.md
 
-# Ignore scripts and contracts (not needed at runtime)
+# Ignore scripts (not needed at runtime)
 scripts/
+
+# Ignore contracts source
 contracts/
 
-# Ignore build artifacts
-frontend/dist
-*.log
+# Ignore pre-built frontend (we build fresh in Docker)
+frontend/dist/
 
-# Ignore IDE files
-.vscode
-.idea
+# Ignore logs
+*.log
+backend.log
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
 *.swp
+*.swo
+.DS_Store
 
 # Ignore test files
 *.test.js
+*.test.ts
 *.spec.js
+*.spec.ts
+__tests__/
 coverage/
 
+# Ignore environment files (Railway injects these)
+.env
+.env.*
+!.env.example
+
+# Ignore docker-compose files
+docker-compose*.yml
+docker-compose*.yaml
+
+# Ignore railway config (not needed in container)
+railway.json
+nixpacks.toml
+
+# Ignore misc files
+*.json.bak
+identity-registration.json
+agent-metadata.json
+knowledge_base_chain.txt
+bounties.md
+overview.md
+plan.md
