@@ -200,16 +200,15 @@ export async function requestCreditsPurchase(userAddress, packageId) {
  * Complete credits purchase with signed payment
  * @param {string} userAddress - User's wallet address
  * @param {string} packageId - Package ID (starter, builder, pro)
- * @param {string} paymentHeader - Signed x402 payment header
+ * @param {string} signedApproval - Base64-encoded signed approval payload
  */
-export async function completeCreditsPurchase(userAddress, packageId, paymentHeader) {
+export async function completeCreditsPurchase(userAddress, packageId, signedApproval) {
   const response = await fetch(`${API_URL}/api/credits/buy`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'X-PAYMENT': paymentHeader
+      'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ userAddress, packageId })
+    body: JSON.stringify({ userAddress, packageId, signedApproval })
   });
   
   if (!response.ok) {

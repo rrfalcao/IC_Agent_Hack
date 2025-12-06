@@ -131,7 +131,6 @@ export default function CreditsPage() {
       console.log('[Credits] Message:', messageWithOwner);
       
       // Use viem's signTypedData via wallet client - this opens MetaMask
-      // Don't pass 'account' - the wallet client uses the connected account automatically
       const signature = await walletClient.signTypedData({
         domain: {
           name: witnessData.domain.name,
@@ -147,7 +146,6 @@ export default function CreditsPage() {
       console.log('[Credits] Signature obtained:', signature);
       
       // Build payload with the exact data that was signed
-      // Convert BigInt back to strings for JSON serialization
       const messageForPayload = {
         owner: address,
         token: witnessData.message.token,
@@ -172,8 +170,10 @@ export default function CreditsPage() {
           }
         }
       };
-      const paymentHeader = btoa(JSON.stringify(paymentPayload));
-      const result = await completeCreditsPurchase(address, selectedPackage.id, paymentHeader);
+      
+      // Use the new simplified API - send signedApproval in body
+      const signedApproval = btoa(JSON.stringify(paymentPayload));
+      const result = await completeCreditsPurchase(address, selectedPackage.id, signedApproval);
       
       if (result.success) {
         // Log the purchase activity
