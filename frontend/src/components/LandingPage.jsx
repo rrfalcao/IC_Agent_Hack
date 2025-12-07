@@ -9,8 +9,8 @@ import { WalletStatus } from './WalletStatus';
 import { useAgentStats } from '../hooks/useAgentStats';
 
 export function LandingPage({ onNavigate }) {
-  // Fetch real on-chain stats from Base Sepolia
-  const { totalAudits, valueSecured, lastActive, loading: statsLoading } = useAgentStats();
+  // Fetch real on-chain stats from BSC Testnet (where contracts are deployed)
+  const { totalAudits, contractsDeployed, valueSecured, lastActive, loading: statsLoading } = useAgentStats();
   const features = [
     {
       icon: '💬',
@@ -154,7 +154,7 @@ export function LandingPage({ onNavigate }) {
               showNetwork={true}
             />
             
-            {/* Agent On-Chain Stats - Fetched from Base Sepolia */}
+            {/* Agent On-Chain Stats - Fetched from BSC Testnet */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -173,15 +173,15 @@ export function LandingPage({ onNavigate }) {
               ) : (
                 <>
                   <span style={{ color: '#4ade80', fontWeight: '600' }}>
-                    Total Audits: {totalAudits ?? '—'}
+                    🔗 Transactions: {totalAudits ?? '—'}
                   </span>
                   <span style={{ opacity: 0.4 }}>|</span>
-                  <span style={{ color: '#60a5fa', fontWeight: '600' }}>
-                    Value Secured: {valueSecured ?? '—'}
+                  <span style={{ color: '#c084fc', fontWeight: '600' }}>
+                    📜 Contracts: {contractsDeployed ?? '—'}
                   </span>
                   <span style={{ opacity: 0.4 }}>|</span>
                   <span style={{ color: '#fbbf24' }}>
-                    Last Active: {lastActive ?? '—'}
+                    ⚡ {lastActive ?? '—'}
                   </span>
                 </>
               )}
