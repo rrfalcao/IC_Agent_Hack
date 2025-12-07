@@ -723,26 +723,24 @@ export function ContractGenerator() {
         </div>
       )}
       
-      {/* Show audit history on preview step too */}
-      {step === STEPS.PREVIEW && auditIterations.length > 0 && (
-        <div style={{ marginBottom: '1rem' }}>
-          <details style={{ 
-            background: 'rgba(139,92,246,0.1)', 
-            border: '1px solid rgba(139,92,246,0.3)',
-            borderRadius: '12px',
-            padding: '1rem'
-          }}>
-            <summary style={{ 
-              cursor: 'pointer', 
-              color: '#c4b5fd', 
-              fontWeight: '600',
-              fontSize: '1rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem'
-            }}>
-              📊 View Audit Loop History ({auditIterations.length} iteration{auditIterations.length > 1 ? 's' : ''})
-            </summary>
+      {/* Step 4: Preview & Sign - Now inline with audit logs visible */}
+      {step === STEPS.PREVIEW && (
+        <div>
+          {/* Transaction Preview - Collapsible inline panel */}
+          <TransactionPreview
+            isOpen={true}
+            code={generationResult?.contractCode}
+            auditResult={auditResult}
+            intent={{ type: 'deploy_contract', data: generationResult?.compiled }}
+            contractName={generationResult?.compiled?.contractName || 'Generated Contract'}
+            estimatedGas="0.002"
+            onSign={handleSignAndDeploy}
+            onCancel={() => setStep(STEPS.INPUT)}
+            defaultExpanded={true}
+          />
+
+          {/* Audit Loop History - Always visible below the preview */}
+          {auditIterations.length > 0 && (
             <div style={{ marginTop: '1rem' }}>
               <AuditLoopVisualizer 
                 iterations={auditIterations}
@@ -750,21 +748,9 @@ export function ContractGenerator() {
                 isLoading={false}
               />
             </div>
-          </details>
+          )}
         </div>
       )}
-
-      {/* Step 4: Preview & Sign */}
-      <TransactionPreview
-        isOpen={step === STEPS.PREVIEW}
-        code={generationResult?.contractCode}
-        auditResult={auditResult}
-        intent={{ type: 'deploy_contract', data: generationResult?.compiled }}
-        contractName={generationResult?.compiled?.contractName || 'Generated Contract'}
-        estimatedGas="0.002"
-        onSign={handleSignAndDeploy}
-        onCancel={() => setStep(STEPS.INPUT)}
-      />
 
       {/* Step 5: Signing/Deploying */}
       {(step === STEPS.SIGNING || step === STEPS.DEPLOYING) && (
