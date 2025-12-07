@@ -162,27 +162,6 @@ export function TransactionPreview({
                 </div>
               </div>
               
-              {/* Issue Summary */}
-              {auditResult.summary && (
-                <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', textAlign: 'center' }}>
-                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(239, 68, 68, 0.2)' }}>
-                    <div style={{ fontWeight: '700', color: '#fca5a5' }}>{auditResult.summary.criticalIssues || 0}</div>
-                    <div style={{ fontSize: '0.7rem', color: '#fca5a5', opacity: 0.8 }}>Critical</div>
-                  </div>
-                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(245, 158, 11, 0.2)' }}>
-                    <div style={{ fontWeight: '700', color: '#fbbf24' }}>{auditResult.summary.highIssues || 0}</div>
-                    <div style={{ fontSize: '0.7rem', color: '#fbbf24', opacity: 0.8 }}>High</div>
-                  </div>
-                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(234, 179, 8, 0.2)' }}>
-                    <div style={{ fontWeight: '700', color: '#facc15' }}>{auditResult.summary.mediumIssues || 0}</div>
-                    <div style={{ fontSize: '0.7rem', color: '#facc15', opacity: 0.8 }}>Medium</div>
-                  </div>
-                  <div style={{ borderRadius: '8px', padding: '0.5rem', background: 'rgba(34, 197, 94, 0.2)' }}>
-                    <div style={{ fontWeight: '700', color: '#86efac' }}>{auditResult.summary.lowIssues || 0}</div>
-                    <div style={{ fontSize: '0.7rem', color: '#86efac', opacity: 0.8 }}>Low</div>
-                  </div>
-                </div>
-              )}
 
               {auditResult.report && (
                 <details style={{ marginTop: '0.75rem' }}>
