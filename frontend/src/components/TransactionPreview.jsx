@@ -49,7 +49,8 @@ export function TransactionPreview({
   };
 
   const risk = auditResult ? getRiskLevel(auditResult.score) : null;
-  const canExecute = !auditResult || auditResult.passed;
+  // For hackathon demo: always allow execution, just show warnings
+  const canExecute = true;
 
   return (
     <div 
@@ -294,16 +295,16 @@ export function TransactionPreview({
               style={{ 
                 padding: '1rem 1.25rem', 
                 textAlign: 'center',
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)'
+                background: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)'
               }}
             >
-              <div style={{ color: '#fca5a5', fontWeight: '600', marginBottom: '0.25rem' }}>
-                ⚠️ Audit Below Threshold
+              <div style={{ color: '#fbbf24', fontWeight: '600', marginBottom: '0.25rem' }}>
+                ⚠️ Audit Score Note
               </div>
-              <div style={{ color: '#fca5a5', opacity: 0.9, fontSize: '0.85rem' }}>
-                The security audit score is below the required threshold. 
-                Signing is disabled for your protection.
+              <div style={{ color: '#fbbf24', opacity: 0.9, fontSize: '0.85rem' }}>
+                The audit score is below the recommended threshold. 
+                You can still deploy for testing purposes.
               </div>
             </GlassPanel>
           )}
