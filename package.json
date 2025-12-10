@@ -23,6 +23,7 @@
     "@openzeppelin/contracts": "^5.4.0",
     "@q402/core": "file:./q402-snapshot/packages/core",
     "@scure/base": "^1.2.6",
+    "aegis-sdk-js": "file:../avoro/aegis-sdk-js",
     "dotenv": "^16.4.7",
     "ethers": "^6.16.0",
     "hono": "^4.10.1",

@@ -2,25 +2,37 @@
  * The Sovereign Architect - Main Server
  * AI Agent for autonomous DeFi strategy deployment
  */
+// 🆕 STEP 1: Import Aegis FIRST (BEFORE other imports)
+// ========================================
+import { flushAll, shutdownBatcher } from 'aegis-sdk-js';
+import { initializeAegis } from './config/aegis.js';
 
-import { Hono } from 'hono';
-import { streamSSE } from 'hono/streaming';
-import { cors } from 'hono/cors';
+// ========================================
+// 🆕 STEP 2: Initialize Aegis IMMEDIATELY
+// (This MUST happen before any services/routes)
+// ========================================
+initializeAegis();
+// STEP 3: Now your existing imports (NO CHANGES)
+
+
 import { serveStatic } from '@hono/node-server/serve-static';
 import { ethers } from 'ethers';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { streamSSE } from 'hono/streaming';
 import config from './config/index.js';
-import { ChainGPTService } from './services/chaingpt.js';
-import { BlockchainService } from './services/blockchain.js';
-import { createQ402Middleware, getQ402Payment } from './middleware/q402.js';
+import { createQ402Middleware } from './middleware/q402.js';
+import faucetRoutes from './routes/faucet.js';
 import { auditLoop } from './services/auditLoop.js';
+import { BlockchainService } from './services/blockchain.js';
+import { ChainGPTService } from './services/chaingpt.js';
+import { compiler } from './services/compiler.js';
+import { CHIM_PRICING, creditsService } from './services/credits.js';
 import { facilitator } from './services/facilitator.js';
 import { identity } from './services/identity.js';
-import { compiler } from './services/compiler.js';
 import { ingestion } from './services/ingestion.js';
 import { paymentService } from './services/payment.js';
 import { swapService } from './services/swap.js';
-import { creditsService, CHIM_PRICING } from './services/credits.js';
-import faucetRoutes from './routes/faucet.js';
 
 // Initialize services
 const chaingpt = new ChainGPTService(config.chaingpt.apiKey);
@@ -2251,4 +2263,33 @@ serve({
   fetch: app.fetch,
   port
 });
+const shutdown = async () => {
+  console.log('\n[Server] 🛑 Shutting down gracefully...');
+  try {
+    // Flush all pending traces to Avoro
+    await flushAll();
+    console.log('[AEGIS] ✅ All traces flushed');
+    
+    // Shutdown the batcher cleanly
+    await shutdownBatcher();
+    console.log('[AEGIS] ✅ Batcher shutdown complete');
+    
+    process.exit(0);
+  } catch (err) {
+    console.error('[AEGIS] ❌ Shutdown error:', err);
+    process.exit(1);
+  }
+};
 
+// Handle SIGTERM (Railway/Docker shutdown)
+process.on('SIGTERM', shutdown);
+
+// Handle SIGINT (Ctrl+C in terminal)
+process.on('SIGINT', shutdown);
+
+// Handle process exit
+process.on('beforeExit', () => {
+  flushAll().catch(console.error);
+});
+
+console.log('[AEGIS] 🛡️  Graceful shutdown handlers registered');
